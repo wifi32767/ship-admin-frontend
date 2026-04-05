@@ -31,17 +31,13 @@
                         <el-icon><Document /></el-icon>
                         <span>单条录入</span>
                     </el-menu-item>
-                    <el-menu-item index="/data-entry/xlsx">
+                    <el-menu-item index="/data-entry/batch">
                         <el-icon><DocumentCopy /></el-icon>
                         <span>批量录入</span>
                     </el-menu-item>
-                    <el-menu-item index="/data-entry/csv">
-                        <el-icon><DocumentCopy /></el-icon>
-                        <span>爬虫录入</span>
-                    </el-menu-item>
                 </el-sub-menu>
 
-                <el-menu-item index="/data-review">
+                <el-menu-item index="/audit">
                     <el-icon><DataAnalysis /></el-icon>
                     <span>录入审核</span>
                 </el-menu-item>
@@ -66,10 +62,6 @@
                         <el-icon><User /></el-icon>
                         <span>系统管理</span>
                     </template>
-                    <el-menu-item index="/system-management/data-types">
-                        <el-icon><Document /></el-icon>
-                        <span>数据类型</span>
-                    </el-menu-item>
                     <el-menu-item index="/system-management/countries">
                         <el-icon><Location /></el-icon>
                         <span>国家信息</span>

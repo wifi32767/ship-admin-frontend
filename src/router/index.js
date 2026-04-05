@@ -20,6 +20,66 @@ const routes = [
                 name: 'Home',
                 component: () => import('@/views/main/home.vue'),
                 meta: { title: '首页' }
+            },
+            {
+                path: 'data-entry/single',
+                name: 'SingleDataEntry',
+                component: () => import('@/views/main/entry/single.vue'),
+                meta: { title: '单条数据录入' }
+            },
+            {
+                path: 'data-entry/batch',
+                name: 'BatchDataEntry',
+                component: () => import('@/views/main/entry/batch.vue'),
+                meta: { title: '批量数据录入' }
+            },
+            {
+                path: 'audit',
+                name: 'Audit',
+                component: () => import('@/views/main/audit.vue'),
+                meta: { title: '录入审核' }
+            },
+            {
+                path: 'data-modification',
+                name: 'DataModification',
+                component: () => import('@/views/main/modifiy.vue'),
+                meta: { title: '数据修改' }
+            },
+            {
+                path: 'model-management',
+                name: 'ModelManagement',
+                component: () => import('@/views/main/model.vue'),
+                meta: { title: '模型管理' }
+            },
+            {
+                path: 'category-management',
+                name: 'CategoryManagement',
+                component: () => import('@/views/main/category.vue'),
+                meta: { title: '分类管理' }
+            },
+            {
+                path: 'system-management/countries',
+                name: 'CountryManagement',
+                component: () => import('@/views/main/system/country.vue'),
+                meta: { title: '国家信息' }
+            },
+            {
+                path: 'system-management/roles',
+                name: 'RoleManagement',
+                component: () => import('@/views/main/system/role.vue'),
+                meta: { title: '角色管理' }
+            },
+            {
+                path: 'system-management/users',
+                name: 'UserManagement',
+                component: () => import('@/views/main/system/user.vue'),
+                meta: { title: '用户管理' }
+            },
+            {
+                path: 'logs',
+                name: 'Logs',
+                component: () => import('@/views/main/log.vue'),
+                meta: { title: '日志管理' }
             }
         ]
     }
