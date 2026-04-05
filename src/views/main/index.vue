@@ -21,10 +21,25 @@
                     <span>首页</span>
                 </el-menu-item>
 
-                <el-menu-item index="/data-analysis">
-                    <el-icon><Document /></el-icon>
-                    <span>信息录入</span>
-                </el-menu-item>
+
+                <el-sub-menu index="/data-entry">
+                    <template #title>
+                        <el-icon><Document /></el-icon>
+                        <span>信息录入</span>
+                    </template>
+                    <el-menu-item index="/data-entry/single">
+                        <el-icon><Document /></el-icon>
+                        <span>单条录入</span>
+                    </el-menu-item>
+                    <el-menu-item index="/data-entry/xlsx">
+                        <el-icon><DocumentCopy /></el-icon>
+                        <span>批量录入</span>
+                    </el-menu-item>
+                    <el-menu-item index="/data-entry/csv">
+                        <el-icon><DocumentCopy /></el-icon>
+                        <span>爬虫录入</span>
+                    </el-menu-item>
+                </el-sub-menu>
 
                 <el-menu-item index="/data-review">
                     <el-icon><DataAnalysis /></el-icon>
@@ -41,32 +56,37 @@
                     <span>模型管理</span>
                 </el-menu-item>
 
+                <el-menu-item index="/category-management">
+                    <el-icon><Folder /></el-icon>
+                    <span>分类管理</span>
+                </el-menu-item>
+
                 <el-sub-menu index="system-management">
                     <template #title>
                         <el-icon><User /></el-icon>
                         <span>系统管理</span>
                     </template>
-                    <el-menu-item index="/data-types">
+                    <el-menu-item index="/system-management/data-types">
                         <el-icon><Document /></el-icon>
                         <span>数据类型</span>
                     </el-menu-item>
-                    <el-menu-item index="/countries">
+                    <el-menu-item index="/system-management/countries">
                         <el-icon><Location /></el-icon>
                         <span>国家信息</span>
                     </el-menu-item>
-                    <el-menu-item index="/roles">
+                    <el-menu-item index="/system-management/roles">
                         <el-icon><DataAnalysis /></el-icon>
                         <span>角色信息</span>
                     </el-menu-item>
-                    <el-menu-item index="/users">
+                    <el-menu-item index="/system-management/users">
                         <el-icon><User /></el-icon>
                         <span>管理员信息</span>
                     </el-menu-item>
                 </el-sub-menu>
-
-                <el-menu-item index="/questionnaire-management">
+                
+                <el-menu-item index="/logs">
                     <el-icon><Calendar /></el-icon>
-                    <span>问卷管理</span>
+                    <span>日志管理</span>
                 </el-menu-item>
 
             </el-menu>
