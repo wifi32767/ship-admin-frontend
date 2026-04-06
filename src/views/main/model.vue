@@ -101,7 +101,7 @@
 
         <el-form-item label="爬虫脚本">
           <el-upload
-            ref="uploadRef"
+            ref="scriptUploadRef"
             :auto-upload="false"
             :limit="1"
             :on-change="handleScriptChange"
@@ -119,12 +119,13 @@
           <div v-if="formData.existingScript" class="existing-file">
             <el-icon><Document /></el-icon>
             <span>当前脚本：{{ formData.existingScript }}</span>
-            <el-button type="danger" link @click="removeExistingScript">删除</el-button>
+            <el-button type="danger" link @click="formData.existingScript = ''">删除</el-button>
           </div>
         </el-form-item>
 
         <el-form-item label="启动文件">
           <el-upload
+            ref="startupUploadRef"
             :auto-upload="false"
             :limit="1"
             :on-change="handleStartupChange"
@@ -142,7 +143,7 @@
           <div v-if="formData.existingStartup" class="existing-file">
             <el-icon><Document /></el-icon>
             <span>当前启动文件：{{ formData.existingStartup }}</span>
-            <el-button type="danger" link @click="removeExistingStartup">删除</el-button>
+            <el-button type="danger" link @click="formData.existingStartup = ''">删除</el-button>
           </div>
         </el-form-item>
 
@@ -150,16 +151,39 @@
 
         <el-form-item label="关键词列表" prop="keywords">
           <div style="width: 100%">
+            <!-- 分页控制栏 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+              <span style="font-size: 13px; color: #606266">
+                共 {{ formData.keywords.length }} 个关键词
+              </span>
+              <el-pagination
+                v-model:current-page="kwPageNum"
+                :page-size="kwPageSize"
+                :total="formData.keywords.length"
+                layout="prev, pager, next"
+                small
+                background
+                @current-change="handleKwPageChange"
+              />
+            </div>
+
             <el-table
-              :data="formData.keywords"
+              :data="pagedKeywords"
               border
               size="small"
               style="width: 100%; margin-bottom: 10px"
+              empty-text="暂无关键词，请点击下方按钮添加"
             >
+              <el-table-column label="序号" width="55" align="center">
+                <template #default="{ $index }">
+                  {{ (kwPageNum - 1) * kwPageSize + $index + 1 }}
+                </template>
+              </el-table-column>
+
               <el-table-column label="关键词" min-width="130">
-                <template #default="{ row }">
+                <template #default="{ $index }">
                   <el-input
-                    v-model="row.keywordName"
+                    v-model="formData.keywords[(kwPageNum - 1) * kwPageSize + $index].keywordName"
                     placeholder="请输入关键词"
                     size="small"
                   />
@@ -167,9 +191,9 @@
               </el-table-column>
 
               <el-table-column label="增量爬取时间" min-width="210">
-                <template #default="{ row }">
+                <template #default="{ $index }">
                   <el-date-picker
-                    v-model="row.incrementalSpiderTime"
+                    v-model="formData.keywords[(kwPageNum - 1) * kwPageSize + $index].incrementalSpiderTime"
                     type="datetime"
                     placeholder="留空则从最早开始"
                     format="YYYY-MM-DD HH:mm:ss"
@@ -181,14 +205,23 @@
               </el-table-column>
 
               <el-table-column label="启用" width="70" align="center">
-                <template #default="{ row }">
-                  <el-switch v-model="row.useFlag" :active-value="1" :inactive-value="0" />
+                <template #default="{ $index }">
+                  <el-switch
+                    v-model="formData.keywords[(kwPageNum - 1) * kwPageSize + $index].useFlag"
+                    :active-value="1"
+                    :inactive-value="0"
+                  />
                 </template>
               </el-table-column>
 
               <el-table-column label="操作" width="70" align="center">
                 <template #default="{ $index }">
-                  <el-button type="danger" link size="small" @click="removeKeyword($index)">
+                  <el-button
+                    type="danger"
+                    link
+                    size="small"
+                    @click="removeKeyword((kwPageNum - 1) * kwPageSize + $index)"
+                  >
                     删除
                   </el-button>
                 </template>
@@ -207,7 +240,7 @@
             </el-button>
           </div>
           <div class="form-tip">
-            增量爬取时间：爬虫只抓取该时间之后的内容，留空则从最早开始全量抓取
+            增量爬取时间：爬虫只抓取该时间之后的内容；留空则从最早开始全量抓取
           </div>
         </el-form-item>
 
@@ -218,7 +251,7 @@
           />
           <div class="form-tip">
             Cron表达式格式：秒 分 时 日 月 周
-            <el-button type="primary" link @click="showCronHelp">Cron表达式说明</el-button>
+            <el-button type="primary" link @click="cronHelpVisible = true">Cron表达式说明</el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -240,7 +273,7 @@
           <el-radio-button label="failed">失败</el-radio-button>
           <el-radio-button label="running">运行中</el-radio-button>
         </el-radio-group>
-        <el-button size="small" @click="refreshLogs">
+        <el-button size="small" @click="fetchRunLogs">
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
@@ -326,7 +359,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Document, Refresh } from '@element-plus/icons-vue'
 import {
@@ -353,27 +386,29 @@ const total     = ref(0)
 const dialogVisible = ref(false)
 const dialogTitle   = ref('新增模型')
 const formRef       = ref()
-const uploadRef     = ref()
 const saving        = ref(false)
+
+// ── 文件上传 ref ─────────────────────────────────────────
+const scriptUploadRef  = ref()
+const startupUploadRef = ref()
+const scriptFile       = ref(null)
+const startupFile      = ref(null)
 
 // ── 表单数据 ─────────────────────────────────────────────
 const formData = reactive({
-  mReptileModelId:       null,
-  mReptileModelName:     '',
-  mReptileModelIntroduce:'',
-  mReptileModelWeb:      '',
-  mReptileModelState:    'stopped',
-  keywords:              [],   // [{ keywordId, keywordName, useFlag, incrementalSpiderTime }]
-  cronExpression:        '',
-  existingScript:        '',
-  existingStartup:       ''
+  mReptileModelId:        null,
+  mReptileModelName:      '',
+  mReptileModelIntroduce: '',
+  mReptileModelWeb:       '',
+  mReptileModelState:     'stopped',
+  cronExpression:         '',
+  existingScript:         '',
+  existingStartup:        '',
+  // 每项结构：{ keywordId, keywordName, useFlag, incrementalSpiderTime }
+  keywords: []
 })
 
-// ── 文件 ─────────────────────────────────────────────────
-const scriptFile  = ref(null)
-const startupFile = ref(null)
-
-// ── 表单校验 ─────────────────────────────────────────────
+// ── 表单验证规则 ─────────────────────────────────────────
 const formRules = {
   mReptileModelName: [
     { required: true, message: '请输入模型名称', trigger: 'blur' },
@@ -382,6 +417,19 @@ const formRules = {
   mReptileModelWeb: [
     { required: true, message: '请输入目标网址', trigger: 'blur' }
   ]
+}
+
+// ── 关键词分页 ────────────────────────────────────────────
+const kwPageNum  = ref(1)
+const kwPageSize = 5  // 每页 5 条
+
+const pagedKeywords = computed(() => {
+  const start = (kwPageNum.value - 1) * kwPageSize
+  return formData.keywords.slice(start, start + kwPageSize)
+})
+
+const handleKwPageChange = (page) => {
+  kwPageNum.value = page
 }
 
 // ── 日志 ─────────────────────────────────────────────────
@@ -394,32 +442,22 @@ const logFilter        = ref('all')
 const logPageNum       = ref(1)
 const logPageSize      = ref(10)
 const logTotal         = ref(0)
-
 const logDetailVisible = ref(false)
 const currentLogDetail = ref('')
 
-// ── Cron帮助 ─────────────────────────────────────────────
+// ── Cron 帮助 ────────────────────────────────────────────
 const cronHelpVisible = ref(false)
 
 // ── 状态映射 ─────────────────────────────────────────────
-const getStateType = (state) => {
-  const map = { running: 'success', stopped: 'info', error: 'danger' }
-  return map[state] || 'warning'
-}
-const getStateText = (state) => {
-  const map = { running: '运行中', stopped: '已停止', error: '异常' }
-  return map[state] || state
-}
-const getRunStateType = (state) => {
-  const map = { success: 'success', failed: 'danger', running: 'warning' }
-  return map[state] || 'info'
-}
-const getRunStateText = (state) => {
-  const map = { success: '成功', failed: '失败', running: '运行中' }
-  return map[state] || state
-}
+const getStateType    = (s) => ({ running: 'success', stopped: 'info', error: 'danger' }[s] || 'warning')
+const getStateText    = (s) => ({ running: '运行中', stopped: '已停止', error: '异常' }[s] || s)
+const getRunStateType = (s) => ({ success: 'success', failed: 'danger', running: 'warning' }[s] || 'info')
+const getRunStateText = (s) => ({ success: '成功', failed: '失败', running: '运行中' }[s] || s)
 
-// ── 获取模型列表 ──────────────────────────────────────────
+
+// ================================================================
+// 列表 & 分页
+// ================================================================
 const fetchModelList = async () => {
   loading.value = true
   try {
@@ -428,22 +466,23 @@ const fetchModelList = async () => {
       modelList.value = res.data.records || []
       total.value     = res.data.total   || 0
     }
-  } catch (error) {
-    console.error('获取模型列表失败:', error)
+  } catch {
     ElMessage.error('获取数据失败')
   } finally {
     loading.value = false
   }
 }
 
-// ── 新增对话框 ────────────────────────────────────────────
+
+// ================================================================
+// 新增 / 编辑对话框
+// ================================================================
 const showAddDialog = () => {
   dialogTitle.value = '新增模型'
   resetForm()
   dialogVisible.value = true
 }
 
-// ── 编辑模型 ──────────────────────────────────────────────
 const editModel = async (row) => {
   dialogTitle.value   = '编辑模型'
   dialogVisible.value = true
@@ -458,50 +497,48 @@ const editModel = async (row) => {
       formData.mReptileModelState     = d.mReptileModelState
       formData.cronExpression         = d.cronExpression || ''
       formData.existingScript         = d.mReptileModelScriptAddress || ''
-      formData.existingStartup        = d.mReptileModelAddress || ''
-      // 关键词：后端已返回 keywordId / keywordName / useFlag / incrementalSpiderTime
+      formData.existingStartup        = d.mReptileModelAddress       || ''
       formData.keywords = (d.keywords || []).map(k => ({
-        keywordId:            k.keywordId   || null,
-        keywordName:          k.keywordName || '',
-        useFlag:              k.useFlag     ?? 1,
+        keywordId:             k.keywordId,
+        keywordName:           k.keywordName,
+        useFlag:               k.useFlag,
         incrementalSpiderTime: k.incrementalSpiderTime || ''
       }))
+      kwPageNum.value = 1
     }
-  } catch (error) {
-    console.error('获取模型详情失败:', error)
+  } catch {
     ElMessage.error('获取数据失败')
   }
 }
 
-// ── 重置表单 ──────────────────────────────────────────────
 const resetForm = () => {
   formData.mReptileModelId        = null
   formData.mReptileModelName      = ''
   formData.mReptileModelIntroduce = ''
   formData.mReptileModelWeb       = ''
   formData.mReptileModelState     = 'stopped'
-  formData.keywords               = []
   formData.cronExpression         = ''
   formData.existingScript         = ''
   formData.existingStartup        = ''
+  formData.keywords               = []
+  kwPageNum.value                 = 1
   scriptFile.value                = null
   startupFile.value               = null
-  uploadRef.value?.clearFiles()
+  scriptUploadRef.value?.clearFiles()
+  startupUploadRef.value?.clearFiles()
   formRef.value?.resetFields()
 }
 
 const closeDialog = () => resetForm()
 
-// ── 文件处理 ──────────────────────────────────────────────
+// ── 文件处理 ─────────────────────────────────────────────
 const handleScriptChange  = (file) => { scriptFile.value  = file.raw }
 const handleScriptRemove  = ()     => { scriptFile.value  = null }
 const handleStartupChange = (file) => { startupFile.value = file.raw }
 const handleStartupRemove = ()     => { startupFile.value = null }
-const removeExistingScript  = () => { formData.existingScript  = '' }
-const removeExistingStartup = () => { formData.existingStartup = '' }
 
 // ── 关键词操作 ────────────────────────────────────────────
-// 直接 push 一条空行，在表格内编辑
+// 新增后自动跳到最后一页
 const addKeyword = () => {
   formData.keywords.push({
     keywordId:             null,
@@ -509,13 +546,20 @@ const addKeyword = () => {
     useFlag:               1,
     incrementalSpiderTime: ''
   })
+  kwPageNum.value = Math.ceil(formData.keywords.length / kwPageSize)
 }
 
-const removeKeyword = (index) => {
-  formData.keywords.splice(index, 1)
+// 删完当前页为空时自动退到上一页
+const removeKeyword = (realIndex) => {
+  formData.keywords.splice(realIndex, 1)
+  const maxPage = Math.max(1, Math.ceil(formData.keywords.length / kwPageSize))
+  if (kwPageNum.value > maxPage) kwPageNum.value = maxPage
 }
 
-// ── 保存模型 ──────────────────────────────────────────────
+
+// ================================================================
+// 保存模型
+// ================================================================
 const saveModel = async () => {
   if (!formRef.value) return
 
@@ -524,39 +568,39 @@ const saveModel = async () => {
       ElMessage.warning('请填写完整信息')
       return
     }
+
     if (formData.keywords.length === 0) {
       ElMessage.warning('请至少添加一个关键词')
       return
     }
+
     const emptyKw = formData.keywords.some(k => !k.keywordName.trim())
     if (emptyKw) {
-      ElMessage.warning('存在未填写的关键词，请填写完整或删除空行')
+      ElMessage.warning('存在空关键词，请填写完整或删除')
       return
     }
 
     saving.value = true
     try {
-      const submitData = new FormData()
-      submitData.append('mReptileModelId',        formData.mReptileModelId || '')
-      submitData.append('mReptileModelName',       formData.mReptileModelName)
-      submitData.append('mReptileModelIntroduce',  formData.mReptileModelIntroduce)
-      submitData.append('mReptileModelWeb',        formData.mReptileModelWeb)
-      submitData.append('cronExpression',          formData.cronExpression || '')
-
-      // 提交时将前端 keywordName 转为后端期望的 keyworName（历史字段，少一个d）
-      submitData.append('keywords', JSON.stringify(
+      const fd = new FormData()
+      fd.append('mReptileModelId',        formData.mReptileModelId || '')
+      fd.append('mReptileModelName',      formData.mReptileModelName)
+      fd.append('mReptileModelIntroduce', formData.mReptileModelIntroduce)
+      fd.append('mReptileModelWeb',       formData.mReptileModelWeb)
+      fd.append('cronExpression',         formData.cronExpression || '')
+      fd.append('keywords', JSON.stringify(
         formData.keywords.map(kw => ({
-          keywordId:             kw.keywordId || null,
-          keyworName:            kw.keywordName.trim(),   // ← 后端字段名
+          keywordId:             kw.keywordId   || null,
+          keywordName:           kw.keywordName.trim(),
           useFlag:               kw.useFlag,
           incrementalSpiderTime: kw.incrementalSpiderTime || ''
         }))
       ))
 
-      if (scriptFile.value)  submitData.append('scriptFile',  scriptFile.value)
-      if (startupFile.value) submitData.append('startupFile', startupFile.value)
+      if (scriptFile.value)  fd.append('scriptFile',  scriptFile.value)
+      if (startupFile.value) fd.append('startupFile', startupFile.value)
 
-      const res = await saveModelApi(submitData)
+      const res = await saveModelApi(fd)
       if (res.code === 200) {
         ElMessage.success('保存成功')
         dialogVisible.value = false
@@ -564,8 +608,7 @@ const saveModel = async () => {
       } else {
         ElMessage.error(res.message || '保存失败')
       }
-    } catch (error) {
-      console.error('保存失败:', error)
+    } catch {
       ElMessage.error('保存失败')
     } finally {
       saving.value = false
@@ -573,51 +616,44 @@ const saveModel = async () => {
   })
 }
 
-// ── 启动 / 停止 ───────────────────────────────────────────
+
+// ================================================================
+// 启动 / 停止
+// ================================================================
 const toggleModel = (row) => {
   const isRunning = row.mReptileModelState === 'running'
   const action    = isRunning ? '停止' : '启动'
   ElMessageBox.confirm(`确定要${action}模型"${row.mReptileModelName}"吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText:  '取消',
-    type: 'info'
+    confirmButtonText: '确定', cancelButtonText: '取消', type: 'info'
   }).then(async () => {
     try {
       const res = await (isRunning ? stopModel(row.mReptileModelId) : startModel(row.mReptileModelId))
-      if (res.code === 200) {
-        ElMessage.success(`${action}成功`)
-        fetchModelList()
-      } else {
-        ElMessage.error(res.message || `${action}失败`)
-      }
-    } catch {
-      ElMessage.error(`${action}失败`)
-    }
+      if (res.code === 200) { ElMessage.success(`${action}成功`); fetchModelList() }
+      else ElMessage.error(res.message || `${action}失败`)
+    } catch { ElMessage.error(`${action}失败`) }
   }).catch(() => {})
 }
 
-// ── 删除模型 ──────────────────────────────────────────────
+
+// ================================================================
+// 删除模型
+// ================================================================
 const deleteModel = (row) => {
-  ElMessageBox.confirm(
-    `确定要删除模型"${row.mReptileModelName}"吗？此操作不可恢复。`,
-    '警告',
-    { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
-  ).then(async () => {
+  ElMessageBox.confirm(`确定要删除模型"${row.mReptileModelName}"吗？此操作不可恢复。`, '警告', {
+    confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning'
+  }).then(async () => {
     try {
       const res = await deleteModelApi(row.mReptileModelId)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        fetchModelList()
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
-    } catch {
-      ElMessage.error('删除失败')
-    }
+      if (res.code === 200) { ElMessage.success('删除成功'); fetchModelList() }
+      else ElMessage.error(res.message || '删除失败')
+    } catch { ElMessage.error('删除失败') }
   }).catch(() => {})
 }
 
-// ── 日志相关 ──────────────────────────────────────────────
+
+// ================================================================
+// 运行日志
+// ================================================================
 const viewLogs = async (row) => {
   currentModelId.value   = row.mReptileModelId
   currentModelName.value = row.mReptileModelName
@@ -639,71 +675,46 @@ const fetchRunLogs = async () => {
       runLogs.value  = res.data.records || []
       logTotal.value = res.data.total   || 0
     }
-  } catch {
-    ElMessage.error('获取日志失败')
-  } finally {
-    logLoading.value = false
-  }
+  } catch { ElMessage.error('获取日志失败') }
+  finally { logLoading.value = false }
 }
 
-const refreshLogs = () => fetchRunLogs()
-
 const clearLogs = () => {
-  ElMessageBox.confirm(
-    `确定要清空模型"${currentModelName.value}"的运行日志吗？`,
-    '提示',
-    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-  ).then(async () => {
+  ElMessageBox.confirm(`确定要清空模型"${currentModelName.value}"的运行日志吗？`, '提示', {
+    confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
+  }).then(async () => {
     try {
       const res = await clearRunLogs(currentModelId.value)
-      if (res.code === 200) {
-        ElMessage.success('清空成功')
-        fetchRunLogs()
-      } else {
-        ElMessage.error(res.message || '清空失败')
-      }
-    } catch {
-      ElMessage.error('清空失败')
-    }
+      if (res.code === 200) { ElMessage.success('清空成功'); fetchRunLogs() }
+      else ElMessage.error(res.message || '清空失败')
+    } catch { ElMessage.error('清空失败') }
   }).catch(() => {})
 }
 
-// ── CSV 操作 ──────────────────────────────────────────────
 const downloadCsv = async (csvAddress) => {
   try {
     const res  = await downloadCsvFile(csvAddress)
     const blob = new Blob([res], { type: 'text/csv' })
     const link = document.createElement('a')
-    const url  = URL.createObjectURL(blob)
-    link.href  = url
+    link.href     = URL.createObjectURL(blob)
     link.download = csvAddress.split('/').pop()
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    URL.revokeObjectURL(link.href)
     ElMessage.success('下载成功')
-  } catch {
-    ElMessage.error('下载失败')
-  }
+  } catch { ElMessage.error('下载失败') }
 }
 
 const importToDatabase = (row) => {
   ElMessageBox.confirm('确定要将CSV数据导入数据库吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText:  '取消',
-    type: 'info'
+    confirmButtonText: '确定', cancelButtonText: '取消', type: 'info'
   }).then(async () => {
     try {
       const res = await importCsvToDatabase({ logId: row.logId, csvAddress: row.csvAddress })
-      if (res.code === 200) {
-        ElMessage.success('导入成功')
-        fetchRunLogs()
-      } else {
-        ElMessage.error(res.message || '导入失败')
-      }
-    } catch {
-      ElMessage.error('导入失败')
-    }
+      if (res.code === 200) { ElMessage.success('导入成功'); fetchRunLogs() }
+      else ElMessage.error(res.message || '导入失败')
+    } catch { ElMessage.error('导入失败') }
   }).catch(() => {})
 }
 
@@ -712,28 +723,26 @@ const viewLogDetail = (row) => {
   logDetailVisible.value = true
 }
 
-// ── Cron 帮助数据 ─────────────────────────────────────────
-const showCronHelp = () => { cronHelpVisible.value = true }
 
+// ================================================================
+// Cron 帮助数据
+// ================================================================
 const cronFields = [
-  { field: '秒', allowValues: '0-59',          specialChars: ', - * /' },
-  { field: '分', allowValues: '0-59',          specialChars: ', - * /' },
-  { field: '时', allowValues: '0-23',          specialChars: ', - * /' },
-  { field: '日', allowValues: '1-31',          specialChars: ', - * / ? L W' },
+  { field: '秒', allowValues: '0-59',            specialChars: ', - * /' },
+  { field: '分', allowValues: '0-59',            specialChars: ', - * /' },
+  { field: '时', allowValues: '0-23',            specialChars: ', - * /' },
+  { field: '日', allowValues: '1-31',            specialChars: ', - * / ? L W' },
   { field: '月', allowValues: '1-12 或 JAN-DEC', specialChars: ', - * /' },
-  { field: '周', allowValues: '1-7 或 SUN-SAT', specialChars: ', - * / ? L #' }
+  { field: '周', allowValues: '1-7 或 SUN-SAT',  specialChars: ', - * / ? L #' }
 ]
-
 const cronExamples = [
-  { expression: '0 0 8 * * ?',      description: '每天上午8点执行' },
+  { expression: '0 0 8 * * ?',       description: '每天上午8点执行' },
   { expression: '0 0/30 9-17 * * ?', description: '每天9点到17点每30分钟执行' },
-  { expression: '0 0 2 ? * MON',    description: '每周一凌晨2点执行' },
-  { expression: '0 0 0 1 * ?',      description: '每月1号凌晨执行' }
+  { expression: '0 0 2 ? * MON',     description: '每周一凌晨2点执行' },
+  { expression: '0 0 0 1 * ?',       description: '每月1号凌晨执行' }
 ]
 
-onMounted(() => {
-  fetchModelList()
-})
+onMounted(fetchModelList)
 </script>
 
 <style scoped>
@@ -756,6 +765,7 @@ onMounted(() => {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
+  line-height: 1.5;
 }
 
 .existing-file {

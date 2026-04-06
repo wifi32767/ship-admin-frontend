@@ -13,18 +13,7 @@ export const getModelDetail = (id) => {
 // 保存模型（新增/编辑）
 export const saveModel = (data) => {
   return request.post('/api/model/save', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-}
-
-// 更新模型
-export const updateModel = (data) => {
-  return request.post('/api/model/update', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
 }
 
@@ -65,31 +54,6 @@ export const downloadCsvFile = (filePath) => {
     responseType: 'blob'
   })
 }
-
-// 获取关键词列表
-const addKeyword = () => {
-  formData.keywords.push({
-    keywordId: null,
-    keywordName: '',
-    useFlag: 1,
-    incrementalSpiderTime: ''
-  })
-}
-
-// removeKeyword 不变
-const removeKeyword = (index) => {
-  formData.keywords.splice(index, 1)
-}
-
-// saveModel 提交时，keywords JSON里带上 keywordId 和 incrementalSpiderTime
-submitData.append('keywords', JSON.stringify(
-  formData.keywords.map(kw => ({
-    keywordId: kw.keywordId || null,
-    keyworName: kw.keywordName,   // 注意后端字段名是 keyworName（少一个d）
-    useFlag: kw.useFlag,
-    incrementalSpiderTime: kw.incrementalSpiderTime || ''
-  }))
-))
 
 // 删除关键词
 export const deleteKeyword = (id) => {
