@@ -6,13 +6,13 @@ const routes = [
         path: '/login',
         name: 'Login',
         component: () => import('@/views/login/index.vue'),
-        meta: { requiresAuth: false }
+        meta: { requiresAuth: true }
     },
     {
         path: '/',
         name: 'Main',
         component: () => import('@/views/main/index.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: false },
         redirect: '/home',  // 添加重定向
         children: [
             {

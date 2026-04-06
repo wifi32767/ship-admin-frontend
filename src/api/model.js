@@ -67,14 +67,29 @@ export const downloadCsvFile = (filePath) => {
 }
 
 // 获取关键词列表
-export const getKeywords = (modelId) => {
-  return request.get(`/api/model/${modelId}/keywords`)
+const addKeyword = () => {
+  formData.keywords.push({
+    keywordId: null,
+    keywordName: '',
+    useFlag: 1,
+    incrementalSpiderTime: ''
+  })
 }
 
-// 添加关键词
-export const addKeyword = (data) => {
-  return request.post('/api/model/keyword', data)
+// removeKeyword 不变
+const removeKeyword = (index) => {
+  formData.keywords.splice(index, 1)
 }
+
+// saveModel 提交时，keywords JSON里带上 keywordId 和 incrementalSpiderTime
+submitData.append('keywords', JSON.stringify(
+  formData.keywords.map(kw => ({
+    keywordId: kw.keywordId || null,
+    keyworName: kw.keywordName,   // 注意后端字段名是 keyworName（少一个d）
+    useFlag: kw.useFlag,
+    incrementalSpiderTime: kw.incrementalSpiderTime || ''
+  }))
+))
 
 // 删除关键词
 export const deleteKeyword = (id) => {
