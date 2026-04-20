@@ -1,72 +1,28 @@
 import request from './request'
 
 // ==================== 国家信息管理 ====================
-// 获取国家列表（分页）
-export const getCountryList = (params) => {
-  return request.get('/api/country/list', { params })
-}
-
-// 获取所有国家（不分页，用于下拉选择）
+// 获取所有国家（不分页，用于前端分页）
 export const getAllCountries = () => {
-  return request.get('/api/country/all')
-}
-
-// 获取国家统计
-export const getCountryStats = () => {
-  return request.get('/api/country/stats')
-}
-
-// 获取国家详情
-export const getCountryDetail = (id) => {
-  return request.get(`/api/country/${id}`)
+  return request.get('/api/country')
 }
 
 // 新增国家
 export const saveCountry = (data) => {
-  return request.post('/api/country/save', data)
+  return request.post('/api/country', data, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
 // 更新国家
 export const updateCountry = (data) => {
-  return request.post('/api/country/update', data)
+  return request.put('/api/country', data, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
 // 删除国家
 export const deleteCountry = (id) => {
-  return request.delete(`/api/country/${id}`)
-}
-
-// 批量删除国家
-export const batchDeleteCountries = (data) => {
-  return request.post('/api/country/batch-delete', data)
-}
-
-// 批量导出国家
-export const batchExportCountries = (data) => {
-  return request.post('/api/country/export', data, {
-    responseType: 'blob'
-  })
-}
-
-// 批量导入国家
-export const batchImportCountries = (data) => {
-  return request.post('/api/country/batch-import', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-}
-
-// 下载导入模板
-export const downloadTemplate = () => {
-  return request.get('/api/country/template/download', {
-    responseType: 'blob'
-  })
-}
-
-// 获取国家关联的数据
-export const getRelatedData = (id) => {
-  return request.get(`/api/country/${id}/related-data`)
+  return request.delete('/api/country', { params: { countryId: id } })
 }
 
 // ==================== 用户管理 ====================
