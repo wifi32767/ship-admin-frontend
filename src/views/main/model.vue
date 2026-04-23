@@ -32,9 +32,7 @@
         <el-table-column prop="mReptileModelTime" label="录入时间" width="160" />
         <el-table-column label="操作" width="280" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="editModel(row)">
-              编辑
-            </el-button>
+            <el-button type="primary" link @click="editModel(row)">编辑</el-button>
             <el-button
               :type="row.mReptileModelState === 'running' ? 'warning' : 'success'"
               link
@@ -42,12 +40,8 @@
             >
               {{ row.mReptileModelState === 'running' ? '停止' : '启动' }}
             </el-button>
-            <el-button type="info" link @click="viewLogs(row)">
-              查看日志
-            </el-button>
-            <el-button type="danger" link @click="deleteModel(row)">
-              删除
-            </el-button>
+            <el-button type="info" link @click="viewLogs(row)">查看日志</el-button>
+            <el-button type="danger" link @click="deleteModel(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -69,7 +63,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="700px"
+      width="760px"
       destroy-on-close
       @close="closeDialog"
     >
@@ -105,7 +99,7 @@
           <div class="form-tip">支持多个网址，用英文分号(;)分隔</div>
         </el-form-item>
 
-        <el-form-item label="爬虫脚本" prop="scriptFile">
+        <el-form-item label="爬虫脚本">
           <el-upload
             ref="uploadRef"
             :auto-upload="false"
@@ -119,21 +113,17 @@
               选择Python脚本文件
             </el-button>
             <template #tip>
-              <div class="el-upload__tip">
-                支持 .py 格式，脚本需遵循爬虫规范接口
-              </div>
+              <div class="el-upload__tip">支持 .py 格式，脚本需遵循爬虫规范接口</div>
             </template>
           </el-upload>
           <div v-if="formData.existingScript" class="existing-file">
             <el-icon><Document /></el-icon>
             <span>当前脚本：{{ formData.existingScript }}</span>
-            <el-button type="danger" link @click="removeExistingScript">
-              删除
-            </el-button>
+            <el-button type="danger" link @click="removeExistingScript">删除</el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="启动文件" prop="startupFile">
+        <el-form-item label="启动文件">
           <el-upload
             :auto-upload="false"
             :limit="1"
@@ -146,60 +136,79 @@
               选择启动文件
             </el-button>
             <template #tip>
-              <div class="el-upload__tip">
-                爬虫的入口启动文件，需包含 main 函数
-              </div>
+              <div class="el-upload__tip">爬虫的入口启动文件，需包含 main 函数</div>
             </template>
           </el-upload>
           <div v-if="formData.existingStartup" class="existing-file">
             <el-icon><Document /></el-icon>
             <span>当前启动文件：{{ formData.existingStartup }}</span>
-            <el-button type="danger" link @click="removeExistingStartup">
-              删除
-            </el-button>
+            <el-button type="danger" link @click="removeExistingStartup">删除</el-button>
           </div>
         </el-form-item>
 
         <el-divider content-position="left">关键词配置</el-divider>
 
         <el-form-item label="关键词列表" prop="keywords">
-          <div class="keyword-container">
-            <el-tag
-              v-for="(keyword, index) in formData.keywords"
-              :key="index"
-              closable
-              :disable-transitions="false"
-              @close="removeKeyword(index)"
-              class="keyword-tag"
-            >
-              {{ keyword.keywordName }}
-            </el-tag>
-            <el-input
-              v-if="inputVisible"
-              ref="keywordInputRef"
-              v-model="inputKeyword"
-              class="keyword-input"
+          <div style="width: 100%">
+            <el-table
+              :data="formData.keywords"
+              border
               size="small"
-              @keyup.enter="addKeyword"
-              @blur="addKeyword"
-            />
-            <el-button v-else class="add-keyword-btn" size="small" @click="showKeywordInput">
-              + 添加关键词
+              style="width: 100%; margin-bottom: 10px"
+            >
+              <el-table-column label="关键词" min-width="130">
+                <template #default="{ row }">
+                  <el-input
+                    v-model="row.keywordName"
+                    placeholder="请输入关键词"
+                    size="small"
+                  />
+                </template>
+              </el-table-column>
+
+              <el-table-column label="增量爬取时间" min-width="210">
+                <template #default="{ row }">
+                  <el-date-picker
+                    v-model="row.incrementalSpiderTime"
+                    type="datetime"
+                    placeholder="留空则从最早开始"
+                    format="YYYY-MM-DD HH:mm:ss"
+                    value-format="YYYY-MM-DD HH:mm:ss"
+                    size="small"
+                    style="width: 100%"
+                  />
+                </template>
+              </el-table-column>
+
+              <el-table-column label="启用" width="70" align="center">
+                <template #default="{ row }">
+                  <el-switch v-model="row.useFlag" :active-value="1" :inactive-value="0" />
+                </template>
+              </el-table-column>
+
+              <el-table-column label="操作" width="70" align="center">
+                <template #default="{ $index }">
+                  <el-button type="danger" link size="small" @click="removeKeyword($index)">
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <el-button
+              type="primary"
+              plain
+              size="small"
+              style="width: 100%"
+              @click="addKeyword"
+            >
+              <el-icon><Plus /></el-icon>
+              添加关键词
             </el-button>
           </div>
-          <div class="form-tip">关键词用于定向爬取相关内容，支持增量爬虫</div>
-        </el-form-item>
-
-        <el-form-item label="增量爬虫时间" prop="incrementalSpiderTime">
-          <el-date-picker
-            v-model="formData.incrementalSpiderTime"
-            type="datetime"
-            placeholder="选择增量爬虫起始时间"
-            format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
-          <div class="form-tip">设置后，爬虫将只抓取该时间之后更新的内容</div>
+          <div class="form-tip">
+            增量爬取时间：爬虫只抓取该时间之后的内容，留空则从最早开始全量抓取
+          </div>
         </el-form-item>
 
         <el-form-item label="定时任务" prop="cronExpression">
@@ -217,19 +226,13 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveModel" :loading="saving">
-            保存
-          </el-button>
+          <el-button type="primary" @click="saveModel" :loading="saving">保存</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 运行日志对话框 -->
-    <el-dialog
-      v-model="logDialogVisible"
-      title="爬虫运行日志"
-      width="900px"
-    >
+    <el-dialog v-model="logDialogVisible" title="爬虫运行日志" width="900px">
       <div class="log-controls">
         <el-radio-group v-model="logFilter" @change="fetchRunLogs" size="small">
           <el-radio-button label="all">全部</el-radio-button>
@@ -241,9 +244,7 @@
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
-        <el-button size="small" type="danger" @click="clearLogs">
-          清空日志
-        </el-button>
+        <el-button size="small" type="danger" @click="clearLogs">清空日志</el-button>
       </div>
 
       <el-table :data="runLogs" stripe v-loading="logLoading" max-height="500">
@@ -258,12 +259,7 @@
         <el-table-column prop="resultDesc" label="结果描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="csvAddress" label="CSV文件" width="150">
           <template #default="{ row }">
-            <el-button
-              v-if="row.csvAddress"
-              type="primary"
-              link
-              @click="downloadCsv(row.csvAddress)"
-            >
+            <el-button v-if="row.csvAddress" type="primary" link @click="downloadCsv(row.csvAddress)">
               下载
             </el-button>
             <span v-else>-</span>
@@ -287,9 +283,7 @@
             >
               录入
             </el-button>
-            <el-button type="info" link @click="viewLogDetail(row)">
-              详情
-            </el-button>
+            <el-button type="info" link @click="viewLogDetail(row)">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -321,7 +315,6 @@
           <el-table-column prop="allowValues" label="允许值" />
           <el-table-column prop="specialChars" label="允许的特殊字符" />
         </el-table>
-
         <h4 style="margin-top: 20px">常用示例</h4>
         <el-table :data="cronExamples" border size="small">
           <el-table-column prop="expression" label="Cron表达式" width="200" />
@@ -333,14 +326,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Document, Refresh } from '@element-plus/icons-vue'
 import {
   getModelList,
   getModelDetail,
   saveModel as saveModelApi,
-  updateModel,
   deleteModel as deleteModelApi,
   startModel,
   stopModel,
@@ -350,117 +342,91 @@ import {
   downloadCsvFile
 } from '@/api/model'
 
-// 列表相关
+// ── 列表 ────────────────────────────────────────────────
 const modelList = ref([])
-const loading = ref(false)
-const pageNum = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
+const loading   = ref(false)
+const pageNum   = ref(1)
+const pageSize  = ref(10)
+const total     = ref(0)
 
-// 对话框相关
+// ── 对话框 ───────────────────────────────────────────────
 const dialogVisible = ref(false)
-const dialogTitle = ref('新增模型')
-const formRef = ref()
-const uploadRef = ref()
-const saving = ref(false)
+const dialogTitle   = ref('新增模型')
+const formRef       = ref()
+const uploadRef     = ref()
+const saving        = ref(false)
 
-// 表单数据
+// ── 表单数据 ─────────────────────────────────────────────
 const formData = reactive({
-  mReptileModelId: null,
-  mReptileModelName: '',
-  mReptileModelIntroduce: '',
-  mReptileModelWeb: '',
-  mReptileModelScriptAddress: '',
-  mReptileModelAddress: '',
-  mReptileModelState: 'stopped',
-  keywords: [],
-  incrementalSpiderTime: '',
-  cronExpression: ''
+  mReptileModelId:       null,
+  mReptileModelName:     '',
+  mReptileModelIntroduce:'',
+  mReptileModelWeb:      '',
+  mReptileModelState:    'stopped',
+  keywords:              [],   // [{ keywordId, keywordName, useFlag, incrementalSpiderTime }]
+  cronExpression:        '',
+  existingScript:        '',
+  existingStartup:       ''
 })
 
-// 文件相关
-const scriptFile = ref(null)
+// ── 文件 ─────────────────────────────────────────────────
+const scriptFile  = ref(null)
 const startupFile = ref(null)
 
-// 关键词相关
-const inputVisible = ref(false)
-const inputKeyword = ref('')
-const keywordInputRef = ref()
-
-// 表单验证规则
+// ── 表单校验 ─────────────────────────────────────────────
 const formRules = {
   mReptileModelName: [
     { required: true, message: '请输入模型名称', trigger: 'blur' },
     { min: 2, max: 255, message: '长度在 2 到 255 个字符', trigger: 'blur' }
   ],
   mReptileModelWeb: [
-    { required: true, message: '请输入目标网址', trigger: 'blur' },
-    { type: 'url', message: '请输入正确的URL格式', trigger: 'blur' }
+    { required: true, message: '请输入目标网址', trigger: 'blur' }
   ]
 }
 
-// 日志相关
+// ── 日志 ─────────────────────────────────────────────────
 const logDialogVisible = ref(false)
-const currentModelId = ref(null)
+const currentModelId   = ref(null)
 const currentModelName = ref('')
-const runLogs = ref([])
-const logLoading = ref(false)
-const logFilter = ref('all')
-const logPageNum = ref(1)
-const logPageSize = ref(10)
-const logTotal = ref(0)
+const runLogs          = ref([])
+const logLoading       = ref(false)
+const logFilter        = ref('all')
+const logPageNum       = ref(1)
+const logPageSize      = ref(10)
+const logTotal         = ref(0)
 
-// 日志详情
 const logDetailVisible = ref(false)
 const currentLogDetail = ref('')
 
-// Cron帮助
+// ── Cron帮助 ─────────────────────────────────────────────
 const cronHelpVisible = ref(false)
 
-// 状态映射
+// ── 状态映射 ─────────────────────────────────────────────
 const getStateType = (state) => {
-  if (state === 'running') return 'success'
-  if (state === 'stopped') return 'info'
-  if (state === 'error') return 'danger'
-  return 'warning'
+  const map = { running: 'success', stopped: 'info', error: 'danger' }
+  return map[state] || 'warning'
 }
-
 const getStateText = (state) => {
-  const map = {
-    'running': '运行中',
-    'stopped': '已停止',
-    'error': '异常'
-  }
+  const map = { running: '运行中', stopped: '已停止', error: '异常' }
   return map[state] || state
 }
-
 const getRunStateType = (state) => {
-  if (state === 'success') return 'success'
-  if (state === 'failed') return 'danger'
-  if (state === 'running') return 'warning'
-  return 'info'
+  const map = { success: 'success', failed: 'danger', running: 'warning' }
+  return map[state] || 'info'
 }
-
 const getRunStateText = (state) => {
-  const map = {
-    'success': '成功',
-    'failed': '失败',
-    'running': '运行中'
-  }
+  const map = { success: '成功', failed: '失败', running: '运行中' }
   return map[state] || state
 }
 
-// 获取模型列表
+// ── 获取模型列表 ──────────────────────────────────────────
 const fetchModelList = async () => {
   loading.value = true
   try {
-    const res = await getModelList({
-      pageNum: pageNum.value,
-      pageSize: pageSize.value
-    })
+    const res = await getModelList({ pageNum: pageNum.value, pageSize: pageSize.value })
     if (res.code === 200 && res.data) {
       modelList.value = res.data.records || []
-      total.value = res.data.total || 0
+      total.value     = res.data.total   || 0
     }
   } catch (error) {
     console.error('获取模型列表失败:', error)
@@ -470,32 +436,36 @@ const fetchModelList = async () => {
   }
 }
 
-// 显示新增对话框
+// ── 新增对话框 ────────────────────────────────────────────
 const showAddDialog = () => {
   dialogTitle.value = '新增模型'
   resetForm()
   dialogVisible.value = true
 }
 
-// 编辑模型
+// ── 编辑模型 ──────────────────────────────────────────────
 const editModel = async (row) => {
-  dialogTitle.value = '编辑模型'
+  dialogTitle.value   = '编辑模型'
   dialogVisible.value = true
-
   try {
     const res = await getModelDetail(row.mReptileModelId)
     if (res.code === 200 && res.data) {
-      const data = res.data
-      formData.mReptileModelId = data.mReptileModelId
-      formData.mReptileModelName = data.mReptileModelName
-      formData.mReptileModelIntroduce = data.mReptileModelIntroduce || ''
-      formData.mReptileModelWeb = data.mReptileModelWeb
-      formData.mReptileModelState = data.mReptileModelState
-      formData.keywords = data.keywords || []
-      formData.incrementalSpiderTime = data.incrementalSpiderTime || ''
-      formData.cronExpression = data.cronExpression || ''
-      formData.existingScript = data.mReptileModelScriptAddress
-      formData.existingStartup = data.mReptileModelAddress
+      const d = res.data
+      formData.mReptileModelId        = d.mReptileModelId
+      formData.mReptileModelName      = d.mReptileModelName
+      formData.mReptileModelIntroduce = d.mReptileModelIntroduce || ''
+      formData.mReptileModelWeb       = d.mReptileModelWeb
+      formData.mReptileModelState     = d.mReptileModelState
+      formData.cronExpression         = d.cronExpression || ''
+      formData.existingScript         = d.mReptileModelScriptAddress || ''
+      formData.existingStartup        = d.mReptileModelAddress || ''
+      // 关键词：后端已返回 keywordId / keywordName / useFlag / incrementalSpiderTime
+      formData.keywords = (d.keywords || []).map(k => ({
+        keywordId:            k.keywordId   || null,
+        keywordName:          k.keywordName || '',
+        useFlag:              k.useFlag     ?? 1,
+        incrementalSpiderTime: k.incrementalSpiderTime || ''
+      }))
     }
   } catch (error) {
     console.error('获取模型详情失败:', error)
@@ -503,81 +473,49 @@ const editModel = async (row) => {
   }
 }
 
-// 重置表单
+// ── 重置表单 ──────────────────────────────────────────────
 const resetForm = () => {
-  formData.mReptileModelId = null
-  formData.mReptileModelName = ''
+  formData.mReptileModelId        = null
+  formData.mReptileModelName      = ''
   formData.mReptileModelIntroduce = ''
-  formData.mReptileModelWeb = ''
-  formData.mReptileModelState = 'stopped'
-  formData.keywords = []
-  formData.incrementalSpiderTime = ''
-  formData.cronExpression = ''
-  formData.existingScript = ''
-  formData.existingStartup = ''
-  scriptFile.value = null
-  startupFile.value = null
+  formData.mReptileModelWeb       = ''
+  formData.mReptileModelState     = 'stopped'
+  formData.keywords               = []
+  formData.cronExpression         = ''
+  formData.existingScript         = ''
+  formData.existingStartup        = ''
+  scriptFile.value                = null
+  startupFile.value               = null
   uploadRef.value?.clearFiles()
   formRef.value?.resetFields()
 }
 
-// 关闭对话框
-const closeDialog = () => {
-  resetForm()
-}
+const closeDialog = () => resetForm()
 
-// 脚本文件变化
-const handleScriptChange = (file) => {
-  scriptFile.value = file.raw
-}
+// ── 文件处理 ──────────────────────────────────────────────
+const handleScriptChange  = (file) => { scriptFile.value  = file.raw }
+const handleScriptRemove  = ()     => { scriptFile.value  = null }
+const handleStartupChange = (file) => { startupFile.value = file.raw }
+const handleStartupRemove = ()     => { startupFile.value = null }
+const removeExistingScript  = () => { formData.existingScript  = '' }
+const removeExistingStartup = () => { formData.existingStartup = '' }
 
-const handleScriptRemove = () => {
-  scriptFile.value = null
-}
-
-// 启动文件变化
-const handleStartupChange = (file) => {
-  startupFile.value = file.raw
-}
-
-const handleStartupRemove = () => {
-  startupFile.value = null
-}
-
-// 删除已有脚本
-const removeExistingScript = () => {
-  formData.existingScript = ''
-}
-
-// 删除已有启动文件
-const removeExistingStartup = () => {
-  formData.existingStartup = ''
-}
-
-// 关键词操作
-const showKeywordInput = () => {
-  inputVisible.value = true
-  nextTick(() => {
-    keywordInputRef.value?.focus()
-  })
-}
-
+// ── 关键词操作 ────────────────────────────────────────────
+// 直接 push 一条空行，在表格内编辑
 const addKeyword = () => {
-  if (inputKeyword.value.trim()) {
-    formData.keywords.push({
-      keywordName: inputKeyword.value.trim(),
-      useFlag: 1
-    })
-  }
-  inputVisible.value = false
-  inputKeyword.value = ''
+  formData.keywords.push({
+    keywordId:             null,
+    keywordName:           '',
+    useFlag:               1,
+    incrementalSpiderTime: ''
+  })
 }
 
 const removeKeyword = (index) => {
   formData.keywords.splice(index, 1)
 }
 
-// 保存模型
+// ── 保存模型 ──────────────────────────────────────────────
 const saveModel = async () => {
   if (!formRef.value) return
 
@@ -586,30 +524,37 @@ const saveModel = async () => {
       ElMessage.warning('请填写完整信息')
       return
     }
-
     if (formData.keywords.length === 0) {
       ElMessage.warning('请至少添加一个关键词')
       return
     }
+    const emptyKw = formData.keywords.some(k => !k.keywordName.trim())
+    if (emptyKw) {
+      ElMessage.warning('存在未填写的关键词，请填写完整或删除空行')
+      return
+    }
 
     saving.value = true
-
     try {
       const submitData = new FormData()
-      submitData.append('mReptileModelId', formData.mReptileModelId || '')
-      submitData.append('mReptileModelName', formData.mReptileModelName)
-      submitData.append('mReptileModelIntroduce', formData.mReptileModelIntroduce)
-      submitData.append('mReptileModelWeb', formData.mReptileModelWeb)
-      submitData.append('incrementalSpiderTime', formData.incrementalSpiderTime || '')
-      submitData.append('cronExpression', formData.cronExpression || '')
-      submitData.append('keywords', JSON.stringify(formData.keywords))
+      submitData.append('mReptileModelId',        formData.mReptileModelId || '')
+      submitData.append('mReptileModelName',       formData.mReptileModelName)
+      submitData.append('mReptileModelIntroduce',  formData.mReptileModelIntroduce)
+      submitData.append('mReptileModelWeb',        formData.mReptileModelWeb)
+      submitData.append('cronExpression',          formData.cronExpression || '')
 
-      if (scriptFile.value) {
-        submitData.append('scriptFile', scriptFile.value)
-      }
-      if (startupFile.value) {
-        submitData.append('startupFile', startupFile.value)
-      }
+      // 提交时将前端 keywordName 转为后端期望的 keyworName（历史字段，少一个d）
+      submitData.append('keywords', JSON.stringify(
+        formData.keywords.map(kw => ({
+          keywordId:             kw.keywordId || null,
+          keyworName:            kw.keywordName.trim(),   // ← 后端字段名
+          useFlag:               kw.useFlag,
+          incrementalSpiderTime: kw.incrementalSpiderTime || ''
+        }))
+      ))
+
+      if (scriptFile.value)  submitData.append('scriptFile',  scriptFile.value)
+      if (startupFile.value) submitData.append('startupFile', startupFile.value)
 
       const res = await saveModelApi(submitData)
       if (res.code === 200) {
@@ -628,44 +573,36 @@ const saveModel = async () => {
   })
 }
 
-// 启动/停止模型
-const toggleModel = async (row) => {
+// ── 启动 / 停止 ───────────────────────────────────────────
+const toggleModel = (row) => {
   const isRunning = row.mReptileModelState === 'running'
-  const action = isRunning ? '停止' : '启动'
-
+  const action    = isRunning ? '停止' : '启动'
   ElMessageBox.confirm(`确定要${action}模型"${row.mReptileModelName}"吗？`, '提示', {
     confirmButtonText: '确定',
-    cancelButtonText: '取消',
+    cancelButtonText:  '取消',
     type: 'info'
   }).then(async () => {
     try {
-      let res
-      if (isRunning) {
-        res = await stopModel(row.mReptileModelId)
-      } else {
-        res = await startModel(row.mReptileModelId)
-      }
-
+      const res = await (isRunning ? stopModel(row.mReptileModelId) : startModel(row.mReptileModelId))
       if (res.code === 200) {
         ElMessage.success(`${action}成功`)
         fetchModelList()
       } else {
         ElMessage.error(res.message || `${action}失败`)
       }
-    } catch (error) {
-      console.error(`${action}失败:`, error)
+    } catch {
       ElMessage.error(`${action}失败`)
     }
   }).catch(() => {})
 }
 
-// 删除模型
+// ── 删除模型 ──────────────────────────────────────────────
 const deleteModel = (row) => {
-  ElMessageBox.confirm(`确定要删除模型"${row.mReptileModelName}"吗？此操作不可恢复。`, '警告', {
-    confirmButtonText: '确定删除',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
+  ElMessageBox.confirm(
+    `确定要删除模型"${row.mReptileModelName}"吗？此操作不可恢复。`,
+    '警告',
+    { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+  ).then(async () => {
     try {
       const res = await deleteModelApi(row.mReptileModelId)
       if (res.code === 200) {
@@ -674,56 +611,49 @@ const deleteModel = (row) => {
       } else {
         ElMessage.error(res.message || '删除失败')
       }
-    } catch (error) {
-      console.error('删除失败:', error)
+    } catch {
       ElMessage.error('删除失败')
     }
   }).catch(() => {})
 }
 
-// 查看运行日志
+// ── 日志相关 ──────────────────────────────────────────────
 const viewLogs = async (row) => {
-  currentModelId.value = row.mReptileModelId
+  currentModelId.value   = row.mReptileModelId
   currentModelName.value = row.mReptileModelName
-  logPageNum.value = 1
+  logPageNum.value       = 1
   logDialogVisible.value = true
   await fetchRunLogs()
 }
 
-// 获取运行日志
 const fetchRunLogs = async () => {
   logLoading.value = true
   try {
     const res = await getRunLogs({
-      modelId: currentModelId.value,
-      state: logFilter.value === 'all' ? '' : logFilter.value,
-      pageNum: logPageNum.value,
+      modelId:  currentModelId.value,
+      state:    logFilter.value === 'all' ? '' : logFilter.value,
+      pageNum:  logPageNum.value,
       pageSize: logPageSize.value
     })
     if (res.code === 200 && res.data) {
-      runLogs.value = res.data.records || []
-      logTotal.value = res.data.total || 0
+      runLogs.value  = res.data.records || []
+      logTotal.value = res.data.total   || 0
     }
-  } catch (error) {
-    console.error('获取运行日志失败:', error)
+  } catch {
     ElMessage.error('获取日志失败')
   } finally {
     logLoading.value = false
   }
 }
 
-// 刷新日志
-const refreshLogs = () => {
-  fetchRunLogs()
-}
+const refreshLogs = () => fetchRunLogs()
 
-// 清空日志
 const clearLogs = () => {
-  ElMessageBox.confirm(`确定要清空模型"${currentModelName.value}"的运行日志吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
+  ElMessageBox.confirm(
+    `确定要清空模型"${currentModelName.value}"的运行日志吗？`,
+    '提示',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+  ).then(async () => {
     try {
       const res = await clearRunLogs(currentModelId.value)
       if (res.code === 200) {
@@ -732,83 +662,73 @@ const clearLogs = () => {
       } else {
         ElMessage.error(res.message || '清空失败')
       }
-    } catch (error) {
-      console.error('清空日志失败:', error)
+    } catch {
       ElMessage.error('清空失败')
     }
   }).catch(() => {})
 }
 
-// 下载CSV文件
+// ── CSV 操作 ──────────────────────────────────────────────
 const downloadCsv = async (csvAddress) => {
   try {
-    const res = await downloadCsvFile(csvAddress)
+    const res  = await downloadCsvFile(csvAddress)
     const blob = new Blob([res], { type: 'text/csv' })
     const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.href = url
+    const url  = URL.createObjectURL(blob)
+    link.href  = url
     link.download = csvAddress.split('/').pop()
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
     ElMessage.success('下载成功')
-  } catch (error) {
-    console.error('下载失败:', error)
+  } catch {
     ElMessage.error('下载失败')
   }
 }
 
-// 导入数据库
-const importToDatabase = async (row) => {
-  ElMessageBox.confirm(`确定要将CSV数据导入数据库吗？`, '提示', {
+const importToDatabase = (row) => {
+  ElMessageBox.confirm('确定要将CSV数据导入数据库吗？', '提示', {
     confirmButtonText: '确定',
-    cancelButtonText: '取消',
+    cancelButtonText:  '取消',
     type: 'info'
   }).then(async () => {
     try {
-      const res = await importCsvToDatabase({
-        logId: row.logId,
-        csvAddress: row.csvAddress
-      })
+      const res = await importCsvToDatabase({ logId: row.logId, csvAddress: row.csvAddress })
       if (res.code === 200) {
         ElMessage.success('导入成功')
         fetchRunLogs()
       } else {
         ElMessage.error(res.message || '导入失败')
       }
-    } catch (error) {
-      console.error('导入失败:', error)
+    } catch {
       ElMessage.error('导入失败')
     }
   }).catch(() => {})
 }
 
-// 查看日志详情
 const viewLogDetail = (row) => {
   currentLogDetail.value = JSON.stringify(row, null, 2)
   logDetailVisible.value = true
 }
 
-// Cron帮助
-const showCronHelp = () => {
-  cronHelpVisible.value = true
-}
+// ── Cron 帮助数据 ─────────────────────────────────────────
+const showCronHelp = () => { cronHelpVisible.value = true }
 
 const cronFields = [
-  { field: '秒', allowValues: '0-59', specialChars: ', - * /' },
-  { field: '分', allowValues: '0-59', specialChars: ', - * /' },
-  { field: '时', allowValues: '0-23', specialChars: ', - * /' },
-  { field: '日', allowValues: '1-31', specialChars: ', - * / ? L W' },
+  { field: '秒', allowValues: '0-59',          specialChars: ', - * /' },
+  { field: '分', allowValues: '0-59',          specialChars: ', - * /' },
+  { field: '时', allowValues: '0-23',          specialChars: ', - * /' },
+  { field: '日', allowValues: '1-31',          specialChars: ', - * / ? L W' },
   { field: '月', allowValues: '1-12 或 JAN-DEC', specialChars: ', - * /' },
   { field: '周', allowValues: '1-7 或 SUN-SAT', specialChars: ', - * / ? L #' }
 ]
 
 const cronExamples = [
-  { expression: '0 0 8 * * ?', description: '每天上午8点执行' },
+  { expression: '0 0 8 * * ?',      description: '每天上午8点执行' },
   { expression: '0 0/30 9-17 * * ?', description: '每天9点到17点每30分钟执行' },
-  { expression: '0 0 2 ? * MON', description: '每周一凌晨2点执行' },
-  { expression: '0 0 0 1 * ?', description: '每月1号凌晨执行' }
+  { expression: '0 0 2 ? * MON',    description: '每周一凌晨2点执行' },
+  { expression: '0 0 0 1 * ?',      description: '每月1号凌晨执行' }
 ]
 
 onMounted(() => {
@@ -847,25 +767,6 @@ onMounted(() => {
   background-color: #f5f7fa;
   border-radius: 4px;
   font-size: 13px;
-}
-
-.keyword-container {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.keyword-tag {
-  margin: 2px;
-}
-
-.keyword-input {
-  width: 120px;
-}
-
-.add-keyword-btn {
-  border-style: dashed;
 }
 
 .dialog-footer {
