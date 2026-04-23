@@ -1,21 +1,30 @@
 import request from './request'
 
-// 获取审核列表
+// 获取审核列表（分页）
 export const getAuditList = (params) => {
-  return request.get('/api/audit/list', { params })
+  const { pageNum, pageSize, keyword, status } = params
+  // 构建请求体 AuditSearchParamsVO
+  const body = {
+    title: keyword || '',
+    ...(status !== undefined && status !== '' ? { status: Number(status) } : {})
+  }
+  // 分页参数作为 query
+  return request.post('/api/audit/page', body, {
+    params: {
+      page: pageNum,
+      size: pageSize
+    },
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// 审核通过
-export const auditApprove = (id) => {
-  return request.post('/api/audit/approve', { id })
-}
-
-// 审核拒绝
-export const auditReject = (id, reason) => {
-  return request.post('/api/audit/reject', { id, reason })
-}
-
-// 删除信息
-export const deleteEntry = (id) => {
-  return request.delete(`/api/entry/${id}`)
+// 审核操作（通过/拒绝）
+export const auditAction = (id, status) => {
+  // status: 1-通过，2-拒绝
+  return request.post('/api/audit', {
+    id: Number(id),
+    status: status
+  }, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }

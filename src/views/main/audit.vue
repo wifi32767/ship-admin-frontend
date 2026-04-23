@@ -31,15 +31,40 @@
 
       <el-table :data="auditList" stripe v-loading="loading">
         <el-table-column prop="deviceName" label="信息名称" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="deviceClass" label="分类" width="120">
+        <el-table-column label="分类" width="200">
           <template #default="{ row }">
-            {{ row.deviceClass }} / {{ row.deviceStyle }}
+            <template v-if="row.deviceClass?.name">
+              <el-tag size="small" type="info">{{ row.deviceClass.name }}</el-tag>
+            </template>
+            <template v-if="row.deviceStyle?.name">
+              <span class="category-sep">/</span>
+              <el-tag size="small" type="success">{{ row.deviceStyle.name }}</el-tag>
+            </template>
+            <template v-if="row.deviceType?.name">
+              <span class="category-sep">/</span>
+              <el-tag size="small" type="warning">{{ row.deviceType.name }}</el-tag>
+            </template>
+            <template v-if="!row.deviceClass?.name && !row.deviceStyle?.name && !row.deviceType?.name">
+              -
+            </template>
           </template>
         </el-table-column>
-        <el-table-column prop="countryName" label="所属国家" width="100" />
+        <el-table-column label="所属国家" width="120">
+          <template #default="{ row }">
+            {{ row.deviceCountry?.name || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="deviceUsingUnit" label="实施单位" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="uploadTime" label="提交时间" width="160" />
-        <el-table-column prop="uploadUserName" label="提交人" width="100" />
+        <el-table-column label="提交时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.deviceInsqlTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="提交人" width="100">
+          <template #default>
+            <span>未知</span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.auditFlag)">
@@ -47,7 +72,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row)">
               查看详情
@@ -67,9 +92,6 @@
               @click="handleReject(row)"
             >
               拒绝
-            </el-button>
-            <el-button type="danger" link @click="handleDelete(row)">
-              删除
             </el-button>
           </template>
         </el-table-column>
@@ -93,11 +115,16 @@
           <el-descriptions-item label="信息名称" span="2">
             {{ currentItem.deviceName }}
           </el-descriptions-item>
-          <el-descriptions-item label="分类">
-            {{ currentItem.deviceClass }} / {{ currentItem.deviceStyle }} / {{ currentItem.deviceType }}
+          <el-descriptions-item label="分类" span="2">
+            <template v-if="currentItem.deviceClass?.name">
+              {{ currentItem.deviceClass.name }}
+              <template v-if="currentItem.deviceStyle?.name"> / {{ currentItem.deviceStyle.name }}</template>
+              <template v-if="currentItem.deviceType?.name"> / {{ currentItem.deviceType.name }}</template>
+            </template>
+            <template v-else>-</template>
           </el-descriptions-item>
           <el-descriptions-item label="所属国家">
-            {{ currentItem.countryName }}
+            {{ currentItem.deviceCountry?.name || '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="投产年份">
             {{ currentItem.deviceUseYear || '-' }}
@@ -112,7 +139,7 @@
             {{ currentItem.deviceLocation || '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="经纬度" span="2">
-            {{ currentItem.deviceLongitude }}, {{ currentItem.deviceLatitude }}
+            {{ currentItem.deviceLongitude || '-' }}, {{ currentItem.deviceLatitude || '-' }}
           </el-descriptions-item>
         </el-descriptions>
 
@@ -121,42 +148,31 @@
           <div class="rich-text" v-html="currentItem.deviceIntroduce"></div>
         </div>
 
-        <div v-if="currentItem.images && currentItem.images.length" class="section">
+        <div v-if="imagesList.length" class="section">
           <h4>相关图片</h4>
           <div class="image-gallery">
             <el-image
-              v-for="(img, idx) in currentItem.images"
+              v-for="(img, idx) in imagesList"
               :key="idx"
               :src="img"
-              :preview-src-list="currentItem.images"
+              :preview-src-list="imagesList"
               fit="cover"
               class="gallery-image"
             />
           </div>
         </div>
 
-        <div v-if="currentItem.videos && currentItem.videos.length" class="section">
+        <div v-if="videosList.length" class="section">
           <h4>相关视频</h4>
           <div class="video-list">
             <video
-              v-for="(video, idx) in currentItem.videos"
+              v-for="(video, idx) in videosList"
               :key="idx"
               :src="video"
               controls
               class="video-item"
             />
           </div>
-        </div>
-
-        <div v-if="currentItem.deviceNewsLink" class="section">
-          <h4>相关新闻</h4>
-          <p><strong>标题：</strong>{{ currentItem.deviceNewsTitle || '-' }}</p>
-          <p><strong>链接：</strong>
-            <el-link :href="currentItem.deviceNewsLink" target="_blank">
-              {{ currentItem.deviceNewsLink }}
-            </el-link>
-          </p>
-          <p><strong>时间：</strong>{{ currentItem.deviceNewsTime || '-' }}</p>
         </div>
       </div>
 
@@ -187,7 +203,7 @@
         v-model="rejectReason"
         type="textarea"
         :rows="4"
-        placeholder="请输入拒绝原因"
+        placeholder="请输入拒绝原因（将记录到审核备注）"
       />
       <template #footer>
         <el-button @click="rejectVisible = false">取消</el-button>
@@ -198,10 +214,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import { getAuditList, auditApprove, auditReject, deleteEntry } from '@/api/audit'
+import { getAuditList, auditAction } from '@/api/audit'
 
 const auditStatus = ref('pending')
 const searchKeyword = ref('')
@@ -211,28 +227,51 @@ const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-// 详情相关
 const detailVisible = ref(false)
 const currentItem = ref(null)
 
-// 拒绝相关
 const rejectVisible = ref(false)
 const rejectReason = ref('')
 const rejectItem = ref(null)
 
-// 获取状态类型
+// 处理图片和视频列表
+const imagesList = computed(() => {
+  if (!currentItem.value || !currentItem.value.deviceImg) return []
+  return currentItem.value.deviceImg.split(',').filter(url => url.trim())
+})
+const videosList = computed(() => {
+  if (!currentItem.value || !currentItem.value.deviceVideo) return []
+  return currentItem.value.deviceVideo.split(',').filter(url => url.trim())
+})
+
+// 构造三级分类显示名称
+const getCategoryName = (row) => {
+  const parts = []
+  if (row.deviceClass?.name) parts.push(row.deviceClass.name)
+  if (row.deviceStyle?.name) parts.push(row.deviceStyle.name)
+  if (row.deviceType?.name) parts.push(row.deviceType.name)
+  return parts.length ? parts.join(' / ') : '未分类'
+}
+
+// 格式化日期
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  return date.toLocaleString('zh-CN')
+}
+
 const getStatusType = (flag) => {
-  if (flag === 0 || flag === '0') return 'warning'
-  if (flag === 1 || flag === '1') return 'success'
-  if (flag === 2 || flag === '2') return 'danger'
+  if (flag === 0) return 'warning'
+  if (flag === 1) return 'success'
+  if (flag === 2) return 'danger'
   return 'info'
 }
 
-// 获取状态文本
 const getStatusText = (flag) => {
-  if (flag === 0 || flag === '0') return '待审核'
-  if (flag === 1 || flag === '1') return '已通过'
-  if (flag === 2 || flag === '2') return '已拒绝'
+  if (flag === 0) return '待审核'
+  if (flag === 1) return '已通过'
+  if (flag === 2) return '已拒绝'
   return '未知'
 }
 
@@ -240,18 +279,42 @@ const getStatusText = (flag) => {
 const fetchAuditList = async () => {
   loading.value = true
   try {
-    let status = auditStatus.value
-    if (status === 'all') status = ''
-    
+    let status = ''
+    if (auditStatus.value === 'pending') status = 0
+    else if (auditStatus.value === 'approved') status = 1
+    else if (auditStatus.value === 'rejected') status = 2
+    else if (auditStatus.value === 'all') status = 3
+
     const res = await getAuditList({
-      auditFlag: status,
-      keyword: searchKeyword.value,
       pageNum: pageNum.value,
-      pageSize: pageSize.value
+      pageSize: pageSize.value,
+      keyword: searchKeyword.value,
+      status: status
     })
-    if (res.code === 200 && res.data) {
-      auditList.value = res.data.records || []
-      total.value = res.data.total || 0
+    
+    // 新接口返回 code: 200 表示成功
+    if (res.code === 200) {
+      let list = []
+      let totalCount = 0
+      // 兼容两种返回： res.data 为数组，或 res.data 包含 list/total
+      if (Array.isArray(res.data)) {
+        list = res.data
+        totalCount = list.length
+        // 如果同时有 total 字段（例如分页响应）则优先使用
+        if (res.total !== undefined) totalCount = res.total
+      } else if (res.data && Array.isArray(res.data.list)) {
+        list = res.data.list
+        totalCount = res.data.total || list.length
+      } else if (res.data && Array.isArray(res.data.records)) {
+        list = res.data.records
+        totalCount = res.data.total || list.length
+      } else {
+        list = []
+      }
+      auditList.value = list
+      total.value = totalCount
+    } else {
+      ElMessage.error(res.message || '获取数据失败')
     }
   } catch (error) {
     console.error('获取审核列表失败:', error)
@@ -261,19 +324,16 @@ const fetchAuditList = async () => {
   }
 }
 
-// 状态变化
 const handleStatusChange = () => {
   pageNum.value = 1
   fetchAuditList()
 }
 
-// 查看详情
 const viewDetail = (row) => {
   currentItem.value = row
   detailVisible.value = true
 }
 
-// 审核通过
 const handleApprove = async (row) => {
   ElMessageBox.confirm(`确定要通过信息"${row.deviceName}"的审核吗？`, '提示', {
     confirmButtonText: '确定',
@@ -281,8 +341,8 @@ const handleApprove = async (row) => {
     type: 'info'
   }).then(async () => {
     try {
-      const res = await auditApprove(row.deviceId)
-      if (res.code === 200) {
+      const res = await auditAction(row.id, 1)
+      if (res.code === 0) {
         ElMessage.success('审核通过')
         detailVisible.value = false
         fetchAuditList()
@@ -296,7 +356,6 @@ const handleApprove = async (row) => {
   }).catch(() => {})
 }
 
-// 拒绝审核
 const handleReject = (row) => {
   rejectItem.value = row
   rejectReason.value = ''
@@ -308,11 +367,10 @@ const confirmReject = async () => {
     ElMessage.warning('请输入拒绝原因')
     return
   }
-
   try {
-    const res = await auditReject(rejectItem.value.deviceId, rejectReason.value)
-    if (res.code === 200) {
-      ElMessage.success('已拒绝该信息')
+    const res = await auditAction(rejectItem.value.id, 2)
+    if (res.code === 0) {
+      ElMessage.success(`已拒绝该信息，原因：${rejectReason.value}`)
       rejectVisible.value = false
       detailVisible.value = false
       fetchAuditList()
@@ -325,108 +383,27 @@ const confirmReject = async () => {
   }
 }
 
-// 删除信息
-const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定要删除信息"${row.deviceName}"吗？此操作不可恢复。`, '警告', {
-    confirmButtonText: '确定删除',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      const res = await deleteEntry(row.deviceId)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        fetchAuditList()
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
-    } catch (error) {
-      console.error('删除失败:', error)
-      ElMessage.error('操作失败')
-    }
-  }).catch(() => {})
-}
-
 onMounted(() => {
   fetchAuditList()
 })
 </script>
 
 <style scoped>
-.audit-container {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.card-header .title {
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-.detail-content {
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.section {
-  margin-top: 20px;
-}
-
-.section h4 {
-  margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: bold;
-  color: #303133;
-  border-left: 3px solid #409EFF;
-  padding-left: 10px;
-}
-
-.rich-text {
-  background-color: #f5f7fa;
-  padding: 12px;
-  border-radius: 4px;
-  line-height: 1.6;
-}
-
-.image-gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.gallery-image {
-  width: 120px;
-  height: 120px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.video-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.video-item {
-  width: 100%;
-  max-height: 300px;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+.audit-container { padding: 20px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.card-header .title { font-size: 16px; font-weight: bold; }
+.header-actions { display: flex; align-items: center; }
+.detail-content { max-height: 60vh; overflow-y: auto; }
+.section { margin-top: 20px; }
+.section h4 { margin-bottom: 12px; font-size: 14px; font-weight: bold; color: #303133; border-left: 3px solid #409EFF; padding-left: 10px; }
+.rich-text { background-color: #f5f7fa; padding: 12px; border-radius: 4px; line-height: 1.6; }
+.image-gallery { display: flex; flex-wrap: wrap; gap: 10px; }
+.gallery-image { width: 120px; height: 120px; border-radius: 4px; cursor: pointer; }
+.video-list { display: flex; flex-direction: column; gap: 10px; }
+.video-item { width: 100%; max-height: 300px; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
+.category-sep {
+  margin: 0 4px;
+  color: #909399;
 }
 </style>
