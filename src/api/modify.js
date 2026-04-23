@@ -1,57 +1,23 @@
 import request from './request'
 
-// 获取数据列表
-export const getDataList = (params) => {
-  return request.get('/api/data/list', { params })
+// 获取分页列表
+export const getPageList = (params) => {
+  return request.get('/api/device/page', { params })
 }
 
-// 获取数据详情
-export const getDataDetail = (id) => {
-  return request.get(`/api/data/${id}`)
+// 获取信息总数量
+export const getDeviceCount = () => {
+  return request.get('/api/device/count')
 }
 
-// 更新数据
+// 修改信息
 export const updateData = (data) => {
-  return request.post('/api/data/update', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
+  return request.put('/api/device', data, {
+    headers: { 'Content-Type': 'application/json' }
   })
 }
 
-// 删除数据
-export const deleteData = (id) => {
-  return request.delete(`/api/data/${id}`)
-}
-
-// 批量删除数据
-export const batchDeleteData = (data) => {
-  return request.post('/api/data/batch-delete', data)
-}
-
-// 批量导出数据
-export const batchExport = (data) => {
-  return request.post('/api/data/export', data, {
-    responseType: 'blob'
-  })
-}
-
-// 获取修改历史
-export const getModifyHistory = (id) => {
-  return request.get(`/api/data/history/${id}`)
-}
-
-// 获取分类列表
-export const getCategoryList = () => {
-  return request.get('/api/category/list')
-}
-
-// 获取分类树
-export const getCategoryTree = () => {
-  return request.get('/api/category/tree')
-}
-
-// 获取国家列表
-export const getCountryList = () => {
-  return request.get('/api/country/list')
+// 删除信息
+export const deleteDevice = (id) => {
+  return request.delete(`/api/device/${id}`)
 }

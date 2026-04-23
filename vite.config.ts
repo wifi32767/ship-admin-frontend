@@ -10,7 +10,7 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port: 3000,
     proxy: {
       // 代理所有以 /api 开头的请求
       '/api': {

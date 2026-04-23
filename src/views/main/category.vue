@@ -62,14 +62,10 @@
               <el-tag :type="getLevelTagType(row.level)" size="small" class="level-tag">
                 {{ getLevelText(row.level) }}
               </el-tag>
-              <el-tag v-if="row.status === 0" type="info" size="small" class="status-tag">
-                已禁用
-              </el-tag>
             </div>
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="250" show-overflow-tooltip />
-        <el-table-column prop="sortOrder" label="排序" width="80" align="center" />
         <el-table-column prop="createTime" label="创建时间" width="160" />
         <el-table-column label="操作" width="300" align="center" fixed="right">
           <template #default="{ row }">
@@ -88,7 +84,7 @@
               type="danger"
               link
               @click="deleteCategory(row)"
-              :disabled="hasChildren(row) || hasReference(row)"
+              :disabled="hasChildren(row)"
             >
               删除
             </el-button>
@@ -110,17 +106,14 @@
         :rules="formRules"
         label-width="100px"
       >
-        <!-- 显示分类路径 -->
-        <el-form-item label="分类路径" v-if="formData.level > 1">
+        <!-- 显示父级分类 -->
+        <el-form-item label="父级分类" v-if="formData.level > 1 && parentCategoryName">
           <div class="category-path">
-            <template v-for="(ancestor, idx) in ancestorPath" :key="idx">
-              <span class="path-item">{{ ancestor.name }}</span>
-              <el-icon v-if="idx < ancestorPath.length - 1"><ArrowRight /></el-icon>
-            </template>
+            <span class="path-item">{{ parentCategoryName }}</span>
           </div>
         </el-form-item>
 
-        <el-form-item :label="`${getLevelText(formData.level)}名称`" prop="name">
+        <el-form-item :label="`分类名称`" prop="name">
           <el-input
             v-model="formData.name"
             :placeholder="`请输入${getLevelText(formData.level)}名称`"
@@ -139,23 +132,6 @@
             show-word-limit
           />
         </el-form-item>
-
-        <el-form-item label="排序序号" prop="sortOrder">
-          <el-input-number
-            v-model="formData.sortOrder"
-            :min="0"
-            :max="999"
-            controls-position="right"
-          />
-          <div class="form-tip">数字越小，排序越靠前</div>
-        </el-form-item>
-
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="formData.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="0">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
       </el-form>
 
       <template #footer>
@@ -165,45 +141,33 @@
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 分类引用检查对话框 -->
-    <el-dialog v-model="referenceDialogVisible" title="分类引用详情" width="800px">
-      <el-alert
-        :title="`分类【${currentCategory?.name}】被以下 ${referenceData.length} 条数据引用，无法删除`"
-        type="warning"
-        show-icon
-      />
-      <el-table :data="referenceData" stripe style="margin-top: 16px" max-height="400">
-        <el-table-column prop="deviceName" label="信息名称" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="deviceClass" label="一级分类" width="150" />
-        <el-table-column prop="deviceStyle" label="二级分类" width="150" />
-        <el-table-column prop="deviceType" label="三级分类" width="150" />
-        <el-table-column prop="createTime" label="创建时间" width="160" />
-      </el-table>
-      <template #footer">
-        <el-button @click="referenceDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Folder, Document, Memo, ArrowRight } from '@element-plus/icons-vue'
+import { Plus, Search, Folder, Document, Memo } from '@element-plus/icons-vue'
 import {
   getCategoryTree,
-  getCategoryStats,
-  saveCategory as saveCategoryApi,
-  updateCategory,
-  deleteCategory as deleteCategoryApi,
-  checkCategoryReference
+  searchCategories,
+  createClass,
+  updateClass,
+  deleteClass,
+  createStyle,
+  updateStyle,
+  deleteStyle,
+  createType,
+  updateType,
+  deleteType,
+  convertToBackendData
 } from '@/api/category'
 
 // 列表相关
 const tableData = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
+const originalTreeData = ref([]) // 存储原始完整树数据
 
 // 统计数据
 const stats = reactive({
@@ -225,27 +189,17 @@ const formData = reactive({
   parentId: null,
   level: 1,
   name: '',
-  description: '',
-  sortOrder: 0,
-  status: 1
+  description: ''
 })
 
-// 祖先路径
-const ancestorPath = ref([])
-
-// 引用检查
-const referenceDialogVisible = ref(false)
-const currentCategory = ref(null)
-const referenceData = ref([])
-
-// 引用缓存（用于快速判断）
-const referenceCache = ref(new Map())
+// 父级分类名称（用于显示）
+const parentCategoryName = ref('')
 
 // 级别配置
 const levelConfig = {
-  1: { name: '一级分类', tagType: 'primary', color: '#409EFF', icon: 'Folder' },
-  2: { name: '二级分类', tagType: 'success', color: '#67C23A', icon: 'Document' },
-  3: { name: '三级分类', tagType: 'warning', color: '#E6A23C', icon: 'Memo' }
+  1: { name: '一级分类', tagType: 'primary', color: '#409EFF' },
+  2: { name: '二级分类', tagType: 'success', color: '#67C23A' },
+  3: { name: '三级分类', tagType: 'warning', color: '#E6A23C' }
 }
 
 const getLevelColor = (level) => levelConfig[level]?.color || '#909399'
@@ -260,39 +214,20 @@ const formRules = computed(() => ({
   ]
 }))
 
-// 构建树形数据
-const buildTreeData = (categories) => {
-  const map = new Map()
-  const roots = []
-
-  categories.forEach(cat => {
-    map.set(cat.id, { ...cat, children: [] })
-  })
-
-  categories.forEach(cat => {
-    const node = map.get(cat.id)
-    if (!cat.parentId || cat.parentId === 0) {
-      roots.push(node)
-    } else {
-      const parent = map.get(cat.parentId)
-      if (parent) {
-        parent.children.push(node)
-      } else {
-        roots.push(node)
-      }
+// 统计分类数量
+const countCategories = (nodes) => {
+  let counts = { level1: 0, level2: 0, level3: 0 }
+  const traverse = (nodes) => {
+    for (const node of nodes) {
+      if (node.level === 1) counts.level1++
+      else if (node.level === 2) counts.level2++
+      else if (node.level === 3) counts.level3++
+      if (node.children?.length) traverse(node.children)
     }
-  })
-
-  // 递归排序
-  const sortChildren = (nodes) => {
-    nodes.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-    nodes.forEach(node => {
-      if (node.children?.length) sortChildren(node.children)
-    })
   }
-  sortChildren(roots)
-
-  return roots
+  traverse(nodes)
+  counts.total = counts.level1 + counts.level2 + counts.level3
+  return counts
 }
 
 // 过滤树形数据
@@ -314,32 +249,29 @@ const filterTreeData = (nodes, keyword) => {
   return result
 }
 
-// 统计分类数量
-const countCategories = (nodes) => {
-  let counts = { level1: 0, level2: 0, level3: 0 }
-  const traverse = (nodes) => {
-    for (const node of nodes) {
-      if (node.level === 1) counts.level1++
-      else if (node.level === 2) counts.level2++
-      else if (node.level === 3) counts.level3++
-      if (node.children?.length) traverse(node.children)
-    }
-  }
-  traverse(nodes)
-  counts.total = counts.level1 + counts.level2 + counts.level3
-  return counts
-}
-
 // 获取分类数据
 const fetchCategories = async () => {
   loading.value = true
   try {
-    const res = await getCategoryTree()
-    if (res.code === 200 && res.data) {
-      const filtered = filterTreeData(res.data, searchKeyword.value)
-      tableData.value = filtered
-      const counts = countCategories(res.data)
+    let res
+    if (searchKeyword.value) {
+      res = await searchCategories(searchKeyword.value)
+    } else {
+      res = await getCategoryTree()
+    }
+    
+    if (res.code === 200 && Array.isArray(res.data)) {
+      originalTreeData.value = res.data
+      // 如果有关键字，使用前端过滤（可选，后端搜索已返回匹配的树）
+      if (searchKeyword.value) {
+        tableData.value = originalTreeData.value
+      } else {
+        tableData.value = originalTreeData.value
+      }
+      const counts = countCategories(originalTreeData.value)
       Object.assign(stats, counts)
+    } else {
+      ElMessage.error(res.message || '获取数据失败')
     }
   } catch (error) {
     console.error('获取分类数据失败:', error)
@@ -349,47 +281,56 @@ const fetchCategories = async () => {
   }
 }
 
-// 搜索处理
+// 前端过滤搜索（保留，但后端搜索已实现，可简化）
 const handleSearch = () => {
-  fetchCategories()
+  if (!searchKeyword.value) {
+    tableData.value = originalTreeData.value
+  } else {
+    // 如果希望前端过滤，可以调用 filterTreeData
+    tableData.value = filterTreeData(originalTreeData.value, searchKeyword.value)
+  }
 }
 
-// 获取祖先路径
-const getAncestorPath = async (categoryId) => {
-  try {
-    const res = await getCategoryAncestors(categoryId)
-    if (res.code === 200) {
-      ancestorPath.value = res.data || []
+// 在树中查找节点
+const findNodeInTree = (nodes, id) => {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    if (node.children?.length) {
+      const found = findNodeInTree(node.children, id)
+      if (found) return found
     }
-  } catch (error) {
-    console.error('获取祖先路径失败:', error)
-    ancestorPath.value = []
   }
+  return null
+}
+
+// 获取父级分类名称
+const getParentName = (parentId, level) => {
+  if (!parentId) return ''
+  const parent = findNodeInTree(originalTreeData.value, parentId)
+  return parent ? parent.name : ''
 }
 
 // 显示新增对话框
 const showAddDialog = async (parentNode, level) => {
-  dialogTitle.value = `新增${getLevelText(level)}分类`
+  dialogTitle.value = `新增${getLevelText(level)}`
   
   formData.id = null
   formData.parentId = parentNode?.id || null
   formData.level = level
   formData.name = ''
   formData.description = ''
-  formData.sortOrder = 0
-  formData.status = 1
 
-  if (parentNode && level > 1) {
-    await getAncestorPath(parentNode.id)
+  if (parentNode) {
+    parentCategoryName.value = parentNode.name
   } else {
-    ancestorPath.value = []
+    parentCategoryName.value = ''
   }
 
   dialogVisible.value = true
 }
 
 // 显示编辑对话框
-const showEditDialog = async (row) => {
+const showEditDialog = (row) => {
   dialogTitle.value = `编辑${getLevelText(row.level)}分类`
   
   formData.id = row.id
@@ -397,14 +338,7 @@ const showEditDialog = async (row) => {
   formData.level = row.level
   formData.name = row.name
   formData.description = row.description || ''
-  formData.sortOrder = row.sortOrder || 0
-  formData.status = row.status !== undefined ? row.status : 1
-
-  if (row.parentId && row.parentId > 0) {
-    await getAncestorPath(row.id)
-  } else {
-    ancestorPath.value = []
-  }
+  parentCategoryName.value = getParentName(row.parentId, row.level)
 
   dialogVisible.value = true
 }
@@ -418,25 +352,47 @@ const saveCategory = async () => {
 
     saving.value = true
     try {
-      const data = { ...formData }
+      const backendData = convertToBackendData(formData)
       let res
       
       if (formData.id) {
-        res = await updateCategory(data)
+        // 更新操作
+        switch (formData.level) {
+          case 1:
+            res = await updateClass(backendData)
+            break
+          case 2:
+            res = await updateStyle(backendData)
+            break
+          case 3:
+            res = await updateType(backendData)
+            break
+        }
       } else {
-        res = await saveCategoryApi(data)
+        // 新增操作
+        switch (formData.level) {
+          case 1:
+            res = await createClass(backendData)
+            break
+          case 2:
+            res = await createStyle(formData.parentId, backendData)
+            break
+          case 3:
+            res = await createType(formData.parentId, backendData)
+            break
+        }
       }
 
       if (res.code === 200) {
         ElMessage.success('保存成功')
         dialogVisible.value = false
-        fetchCategories()
+        await fetchCategories()
       } else {
         ElMessage.error(res.message || '保存失败')
       }
     } catch (error) {
       console.error('保存失败:', error)
-      ElMessage.error('保存失败')
+      ElMessage.error(error.response?.data?.message || '保存失败')
     } finally {
       saving.value = false
     }
@@ -448,28 +404,11 @@ const hasChildren = (row) => {
   return row.children && row.children.length > 0
 }
 
-// 判断是否有引用
-const hasReference = (row) => {
-  return referenceCache.value.get(row.id) === true
-}
-
 // 删除分类
 const deleteCategory = async (row) => {
   if (hasChildren(row)) {
     ElMessage.warning(`请先删除${getLevelText(row.level + 1)}分类`)
     return
-  }
-
-  try {
-    const refRes = await checkCategoryReference(row.id)
-    if (refRes.code === 200 && refRes.data && refRes.data.length > 0) {
-      currentCategory.value = row
-      referenceData.value = refRes.data
-      referenceDialogVisible.value = true
-      return
-    }
-  } catch (error) {
-    console.error('检查引用失败:', error)
   }
 
   ElMessageBox.confirm(
@@ -478,16 +417,28 @@ const deleteCategory = async (row) => {
     { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
   ).then(async () => {
     try {
-      const res = await deleteCategoryApi(row.id)
+      let res
+      switch (row.level) {
+        case 1:
+          res = await deleteClass(row.id)
+          break
+        case 2:
+          res = await deleteStyle(row.id)
+          break
+        case 3:
+          res = await deleteType(row.id)
+          break
+      }
+      
       if (res.code === 200) {
         ElMessage.success('删除成功')
-        fetchCategories()
+        await fetchCategories()
       } else {
         ElMessage.error(res.message || '删除失败')
       }
     } catch (error) {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(error.response?.data?.message || '删除失败')
     }
   }).catch(() => {})
 }
@@ -535,14 +486,8 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.level-tag, .status-tag {
+.level-tag {
   margin-left: 8px;
-}
-
-.form-tip {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
 }
 
 .category-path {
@@ -558,22 +503,5 @@ onMounted(() => {
 .path-item {
   color: #409EFF;
   font-weight: 500;
-}
-
-/* 级联选择器自定义样式 */
-:deep(.el-cascader-node) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cascader-node {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cascader-node .level-tag {
-  margin-left: 8px;
 }
 </style>

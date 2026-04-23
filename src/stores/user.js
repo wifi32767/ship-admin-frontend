@@ -16,9 +16,9 @@ export const useUserStore = defineStore('user', () => {
             console.log('登录响应完整数据:', res)
             
             // 根据后端实际返回结构调整
-            // 后端返回格式: { body: "token", code: 200, message: "success" }
-            if (res && (res.body || res.token)) {
-                const newToken = res.body || res.token
+            // 后端返回格式: { data: "token", code: 200, message: "success" }
+            if (res && (res.data || res.token)) {
+                const newToken = res.data || res.token
                 token.value = newToken
                 username.value = usernameVal
                 isLoggedIn.value = true
