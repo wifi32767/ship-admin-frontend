@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span class="title">角色权限管理</span>
+          <span class="title">角色管理</span>
           <div class="header-actions">
             <el-button type="primary" @click="showAddDialog">
               <el-icon><Plus /></el-icon>
@@ -11,632 +11,327 @@
             </el-button>
             <el-input
               v-model="searchKeyword"
-              placeholder="搜索角色名称/角色标识"
+              placeholder="搜索角色名称"
               style="width: 200px"
               clearable
-              @clear="fetchRoleList"
-              @keyup.enter="fetchRoleList"
+              @clear="handleSearch"
+              @keyup.enter="handleSearch"
             >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
+              <template #prefix><el-icon><Search /></el-icon></template>
             </el-input>
           </div>
         </div>
       </template>
 
-      <!-- 角色列表 -->
-      <el-table :data="roleList" stripe v-loading="loading">
+      <el-table :data="filteredRoleList" stripe v-loading="loading">
         <el-table-column prop="roleId" label="角色ID" width="80" />
-        <el-table-column prop="roleName" label="角色名称" min-width="120">
+        <el-table-column prop="roleName" label="角色名称" min-width="120" />
+        <el-table-column label="已有权限" min-width="250">
           <template #default="{ row }">
-            <el-tag :type="getRoleTagType(row.roleName)" size="small">
-              {{ row.roleName }}
+            <el-tag
+              v-for="permId in row.modules"
+              :key="permId"
+              size="small"
+              style="margin:2px"
+              type="primary"
+            >
+              {{ getPermissionNameById(permId) }}
             </el-tag>
+            <span v-if="!row.modules?.length" class="no-permission">无权限</span>
           </template>
         </el-table-column>
-        <el-table-column prop="roleKey" label="角色标识" width="150">
+        <el-table-column label="操作" width="200" align="center">
           <template #default="{ row }">
-            <el-tag type="info" size="small">{{ row.roleKey }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="roleSort" label="排序" width="80" align="center" />
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-switch
-              v-model="row.status"
-              :active-value="1"
-              :inactive-value="0"
-              @change="toggleRoleStatus(row)"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column prop="userCount" label="用户数" width="100" align="center">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="viewRoleUsers(row)">
-              {{ row.userCount || 0 }}
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="160" />
-        <el-table-column label="操作" width="280" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="showEditDialog(row)">
-              编辑
-            </el-button>
-            <el-button type="success" link @click="showPermissionDialog(row)">
+            <el-button type="primary" link @click="configPermissions(row)">
               权限配置
             </el-button>
-            <el-button type="danger" link @click="deleteRole(row)" :disabled="row.roleKey === 'admin'">
+            <el-button type="danger" link @click="deleteRole(row)">
               删除
             </el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <el-pagination
         v-model:current-page="pageNum"
         v-model:page-size="pageSize"
         :page-sizes="[10, 20, 50]"
-        :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="fetchRoleList"
-        @current-change="fetchRoleList"
-        style="margin-top: 20px; justify-content: flex-end"
+        :total="filteredTotal"
+        layout="total, sizes, prev, pager"
+        @size-change="pageNum = 1"
+        @current-change="() => {}"
+        style="margin-top:20px;justify-content:flex-end"
       />
     </el-card>
 
-    <!-- 新增/编辑角色对话框 -->
+    <!-- 新增角色对话框 -->
     <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="550px"
+      v-model="addDialogVisible"
+      title="新增角色"
+      width="700px"
       destroy-on-close
-      @close="closeDialog"
     >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-        label-position="right"
-      >
+      <el-form ref="addFormRef" :model="addFormData" :rules="addFormRules" label-width="80px">
         <el-form-item label="角色名称" prop="roleName">
-          <el-input
-            v-model="formData.roleName"
-            placeholder="请输入角色名称，如：数据录入员"
-            maxlength="30"
-          />
+          <el-input v-model="addFormData.roleName" placeholder="请输入角色名称" maxlength="30" />
         </el-form-item>
-
-        <el-form-item label="角色标识" prop="roleKey">
-          <el-input
-            v-model="formData.roleKey"
-            placeholder="请输入角色标识，如：editor"
-            maxlength="50"
-          />
-          <div class="form-tip">角色标识用于代码中判断权限，建议使用英文</div>
-        </el-form-item>
-
-        <el-form-item label="显示顺序" prop="roleSort">
-          <el-input-number
-            v-model="formData.roleSort"
-            :min="0"
-            :max="999"
-            controls-position="right"
-          />
-          <div class="form-tip">数字越小，排序越靠前</div>
-        </el-form-item>
-
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="formData.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="0">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-form-item label="备注" prop="remark">
-          <el-input
-            v-model="formData.remark"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入角色描述"
-            maxlength="500"
-            show-word-limit
-          />
+        <el-form-item label="初始权限">
+          <el-table :data="sortedPermissions" max-height="300" border>
+            <el-table-column prop="id" label="权限ID" width="80" />
+            <el-table-column prop="name" label="权限名称" min-width="150" />
+            <el-table-column label="选择" width="80" align="center">
+              <template #default="{ row }">
+                <el-checkbox v-model="addFormData.selectedPermIds" :label="row.id" />
+              </template>
+            </el-table-column>
+          </el-table>
+          <div class="form-tip">勾选后，角色创建成功将自动赋予这些权限</div>
         </el-form-item>
       </el-form>
-
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveRole" :loading="saving">
-            保存
-          </el-button>
-        </div>
+        <el-button @click="addDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveRole" :loading="addLoading">确定</el-button>
       </template>
     </el-dialog>
 
     <!-- 权限配置对话框 -->
     <el-dialog
-      v-model="permissionVisible"
-      title="权限配置"
+      v-model="permDialogVisible"
+      :title="`配置权限 - ${currentRole?.roleName}`"
       width="800px"
       destroy-on-close
     >
-      <div class="permission-header">
-        <span class="role-info">当前角色：{{ currentRole?.roleName }}</span>
-        <div class="permission-actions">
-          <el-button size="small" @click="expandAll">展开全部</el-button>
-          <el-button size="small" @click="collapseAll">收起全部</el-button>
-          <el-button size="small" @click="checkAll">全选</el-button>
-          <el-button size="small" @click="uncheckAll">取消全选</el-button>
-        </div>
+      <div class="perm-actions">
+        <el-button size="small" @click="checkAll">全选</el-button>
+        <el-button size="small" @click="uncheckAll">取消全选</el-button>
       </div>
-
-      <el-tree
-        ref="permissionTreeRef"
-        :data="permissionTree"
-        :props="treeProps"
-        show-checkbox
-        node-key="id"
-        default-expand-all
-        :expand-on-click-node="false"
-      >
-        <template #default="{ data }">
-          <div class="permission-node">
-            <el-icon :color="getPermissionIconColor(data.type)">
-              <component :is="getPermissionIcon(data.type)" />
-            </el-icon>
-            <span class="permission-name">{{ data.name }}</span>
-            <span class="permission-code">{{ data.permission }}</span>
-            <el-tag v-if="data.type" :type="getPermissionTagType(data.type)" size="small">
-              {{ getPermissionTypeText(data.type) }}
-            </el-tag>
-          </div>
-        </template>
-      </el-tree>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="permissionVisible = false">取消</el-button>
-          <el-button type="primary" @click="savePermissions" :loading="permissionSaving">
-            保存权限配置
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
-
-    <!-- 角色用户列表对话框 -->
-    <el-dialog
-      v-model="userListVisible"
-      :title="`角色用户 - ${currentRole?.roleName}`"
-      width="700px"
-    >
-      <el-table :data="roleUsers" stripe v-loading="userListLoading">
-        <el-table-column prop="userId" label="用户ID" width="80" />
-        <el-table-column prop="userName" label="用户名" min-width="120" />
-        <el-table-column prop="nickName" label="昵称" min-width="120" />
-        <el-table-column prop="phonenumber" label="手机号" width="120" />
-        <el-table-column prop="status" label="状态" width="80" align="center">
+      <el-table :data="sortedPermissions" max-height="400" border>
+        <el-table-column prop="id" label="权限ID" width="80" />
+        <el-table-column prop="name" label="权限名称" min-width="180" />
+        <el-table-column label="选择" width="80" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
+            <el-checkbox v-model="selectedPermIds" :label="row.id" />
           </template>
         </el-table-column>
       </el-table>
-
-      <el-pagination
-        v-model:current-page="userPageNum"
-        v-model:page-size="userPageSize"
-        :total="userTotal"
-        layout="total, sizes, prev, pager"
-        @size-change="fetchRoleUsers"
-        @current-change="fetchRoleUsers"
-        style="margin-top: 20px; justify-content: flex-end"
-        size="small"
-      />
+      <template #footer>
+        <el-button @click="permDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="savePermissions" :loading="savingPerm">
+          保存配置
+        </el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import {
-  getRoleList,
-  getRoleDetail,
-  addRole,
-  updateRole,
-  deleteRole as deleteRoleApi,
-  toggleRoleStatus as toggleRoleStatusApi,
-  getRolePermissionTree,
-  updateRolePermissions,
-  getRoleUsers
+  getAllUserRoles,
+  getAllModules,
+  addPermissionBatch,
+  removePermissionBatch,
+  addUserRole,
+  removeUserRole
 } from '@/api/system'
 
-// 列表相关
+// 角色列表
 const roleList = ref([])
 const loading = ref(false)
+const searchKeyword = ref('')
 const pageNum = ref(1)
 const pageSize = ref(10)
-const total = ref(0)
-const searchKeyword = ref('')
 
-// 对话框相关
-const dialogVisible = ref(false)
-const dialogTitle = ref('新增角色')
-const formRef = ref()
-const saving = ref(false)
-
-// 表单数据
-const formData = reactive({
-  roleId: null,
+// 新增角色
+const addDialogVisible = ref(false)
+const addFormRef = ref()
+const addFormData = ref({
   roleName: '',
-  roleKey: '',
-  roleSort: 0,
-  status: 1,
-  remark: ''
+  selectedPermIds: []
 })
-
-// 表单验证规则
-const formRules = {
+const addLoading = ref(false)
+const addFormRules = {
   roleName: [
     { required: true, message: '请输入角色名称', trigger: 'blur' },
-    { min: 2, max: 30, message: '长度在 2 到 30 个字符', trigger: 'blur' }
-  ],
-  roleKey: [
-    { required: true, message: '请输入角色标识', trigger: 'blur' },
-    { pattern: /^[a-z_]+$/, message: '角色标识只能包含小写字母和下划线', trigger: 'blur' },
-    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+    { min: 2, max: 30, message: '长度 2-30 个字符', trigger: 'blur' }
   ]
 }
 
-// 权限配置相关
-const permissionVisible = ref(false)
-const permissionTreeRef = ref()
+// 权限相关
+const allPermissionsMap = ref({})      // { 权限ID: 权限名称 }
+const permDialogVisible = ref(false)
 const currentRole = ref(null)
-const permissionTree = ref([])
-const permissionSaving = ref(false)
+const selectedPermIds = ref([])
+const savingPerm = ref(false)
 
-const treeProps = {
-  children: 'children',
-  label: 'name'
-}
+// 按ID排序后的权限列表
+const sortedPermissions = computed(() => {
+  return Object.entries(allPermissionsMap.value)
+    .map(([id, name]) => ({ id: Number(id), name }))
+    .sort((a, b) => a.id - b.id)
+})
 
-// 用户列表相关
-const userListVisible = ref(false)
-const roleUsers = ref([])
-const userListLoading = ref(false)
-const userPageNum = ref(1)
-const userPageSize = ref(10)
-const userTotal = ref(0)
-
-// 获取角色标签类型
-const getRoleTagType = (roleName) => {
-  if (roleName === '管理员') return 'danger'
-  if (roleName === '审核员') return 'warning'
-  if (roleName === '数据录入员') return 'success'
-  return 'info'
-}
-
-// 获取权限图标
-const getPermissionIcon = (type) => {
-  const icons = {
-    'menu': 'Grid',
-    'button': 'Pointer',
-    'api': 'Connection',
-    'page': 'Document'
+// 过滤角色列表
+const filteredRoleList = computed(() => {
+  let list = roleList.value
+  if (searchKeyword.value) {
+    const kw = searchKeyword.value.toLowerCase()
+    list = list.filter(r => r.roleName?.toLowerCase().includes(kw))
   }
-  return icons[type] || 'Folder'
-}
-
-// 获取权限图标颜色
-const getPermissionIconColor = (type) => {
-  const colors = {
-    'menu': '#409EFF',
-    'button': '#67C23A',
-    'api': '#E6A23C',
-    'page': '#909399'
+  const start = (pageNum.value - 1) * pageSize.value
+  return list.slice(start, start + pageSize.value)
+})
+const filteredTotal = computed(() => {
+  let list = roleList.value
+  if (searchKeyword.value) {
+    list = list.filter(r => r.roleName?.toLowerCase().includes(searchKeyword.value.toLowerCase()))
   }
-  return colors[type] || '#909399'
-}
+  return list.length
+})
 
-// 获取权限标签类型
-const getPermissionTagType = (type) => {
-  const types = {
-    'menu': 'primary',
-    'button': 'success',
-    'api': 'warning',
-    'page': 'info'
-  }
-  return types[type] || 'info'
-}
-
-// 获取权限类型文本
-const getPermissionTypeText = (type) => {
-  const texts = {
-    'menu': '菜单',
-    'button': '按钮',
-    'api': '接口',
-    'page': '页面'
-  }
-  return texts[type] || type
-}
-
-// 获取角色列表
-const fetchRoleList = async () => {
+// 获取所有角色
+const fetchRoles = async () => {
   loading.value = true
   try {
-    const res = await getRoleList({
-      pageNum: pageNum.value,
-      pageSize: pageSize.value,
-      keyword: searchKeyword.value
-    })
-    if (res.code === 200 && res.data) {
-      roleList.value = res.data.records || []
-      total.value = res.data.total || 0
+    const res = await getAllUserRoles()
+    if (res.code === 200) {
+      roleList.value = (res.data || []).map(r => ({
+        ...r,
+        modules: r.modules || []
+      }))
+    } else {
+      ElMessage.error(res.message || '获取角色列表失败')
     }
-  } catch (error) {
-    console.error('获取角色列表失败:', error)
-    ElMessage.error('获取数据失败')
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('网络错误')
   } finally {
     loading.value = false
   }
 }
 
-// 显示新增对话框
-const showAddDialog = () => {
-  dialogTitle.value = '新增角色'
-  resetForm()
-  dialogVisible.value = true
-}
-
-// 显示编辑对话框
-const showEditDialog = async (row) => {
-  dialogTitle.value = '编辑角色'
+// 获取所有权限（Map<Integer, String>）
+const fetchAllPermissions = async () => {
   try {
-    const res = await getRoleDetail(row.roleId)
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      formData.roleId = data.roleId
-      formData.roleName = data.roleName
-      formData.roleKey = data.roleKey
-      formData.roleSort = data.roleSort
-      formData.status = data.status
-      formData.remark = data.remark
-      dialogVisible.value = true
-    }
-  } catch (error) {
-    console.error('获取角色详情失败:', error)
-    ElMessage.error('获取数据失败')
-  }
-}
-
-// 重置表单
-const resetForm = () => {
-  formData.roleId = null
-  formData.roleName = ''
-  formData.roleKey = ''
-  formData.roleSort = 0
-  formData.status = 1
-  formData.remark = ''
-  formRef.value?.resetFields()
-}
-
-// 关闭对话框
-const closeDialog = () => {
-  resetForm()
-}
-
-// 保存角色
-const saveRole = async () => {
-  if (!formRef.value) return
-
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    saving.value = true
-    try {
-      let res
-      if (formData.roleId) {
-        res = await updateRole(formData)
-      } else {
-        res = await addRole(formData)
-      }
-
-      if (res.code === 200) {
-        ElMessage.success('保存成功')
-        dialogVisible.value = false
-        fetchRoleList()
-      } else {
-        ElMessage.error(res.message || '保存失败')
-      }
-    } catch (error) {
-      console.error('保存失败:', error)
-      ElMessage.error('保存失败')
-    } finally {
-      saving.value = false
-    }
-  })
-}
-
-// 切换角色状态
-const toggleRoleStatus = async (row) => {
-  if (row.roleKey === 'admin') {
-    ElMessage.warning('管理员角色不能禁用')
-    row.status = row.status === 1 ? 0 : 1
-    return
-  }
-
-  try {
-    const res = await toggleRoleStatusApi({
-      roleId: row.roleId,
-      status: row.status
-    })
+    const res = await getAllModules()
     if (res.code === 200) {
-      ElMessage.success(`已${row.status === 1 ? '启用' : '禁用'}角色`)
+      allPermissionsMap.value = res.data || {}
     } else {
-      row.status = row.status === 1 ? 0 : 1
-      ElMessage.error(res.message || '操作失败')
+      ElMessage.error(res.message || '获取权限列表失败')
     }
-  } catch (error) {
-    row.status = row.status === 1 ? 0 : 1
-    ElMessage.error('操作失败')
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('获取权限列表失败')
+  }
+}
+
+// 根据权限ID获取名称
+const getPermissionNameById = (id) => {
+  return allPermissionsMap.value[id] || `未知权限(${id})`
+}
+
+// 新增角色
+const showAddDialog = () => {
+  addFormData.value = { roleName: '', selectedPermIds: [] }
+  addDialogVisible.value = true
+}
+
+const saveRole = async () => {
+  await addFormRef.value.validate()
+  addLoading.value = true
+  try {
+    const addRes = await addUserRole({
+      roleName: addFormData.value.roleName,
+      modules: addFormData.value.selectedPermIds
+    })
+    if (addRes.code !== 200) throw new Error(addRes.message || '创建角色失败')
+    ElMessage.success('角色创建成功')
+    await fetchRoles()
+    const newRole = roleList.value.find(r => r.roleName === addFormData.value.roleName)
+    if (newRole && addFormData.value.selectedPermIds.length) {
+      const permRes = await addPermissionBatch(newRole.roleId, addFormData.value.selectedPermIds)
+      if (permRes.code !== 200) {
+        ElMessage.warning('角色已创建，但权限分配失败：' + (permRes.message || ''))
+      } else {
+        ElMessage.success('初始权限分配成功')
+      }
+      await fetchRoles()
+    }
+    addDialogVisible.value = false
+  } catch (err) {
+    ElMessage.error(err.message || '创建失败')
+  } finally {
+    addLoading.value = false
   }
 }
 
 // 删除角色
 const deleteRole = (row) => {
-  if (row.userCount > 0) {
-    ElMessage.warning(`该角色下还有 ${row.userCount} 个用户，请先转移或删除用户`)
-    return
-  }
-
   ElMessageBox.confirm(
-    `确定要删除角色"${row.roleName}"吗？此操作不可恢复。`,
+    `确定删除角色“${row.roleName}”吗？删除后该角色下的用户权限将受影响，请谨慎操作。`,
     '警告',
-    {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
+    { confirmButtonText: '删除', type: 'warning' }
   ).then(async () => {
     try {
-      const res = await deleteRoleApi(row.roleId)
+      const res = await removeUserRole(row.roleId)
       if (res.code === 200) {
         ElMessage.success('删除成功')
-        fetchRoleList()
+        await fetchRoles()
       } else {
         ElMessage.error(res.message || '删除失败')
       }
-    } catch (error) {
-      console.error('删除失败:', error)
+    } catch (err) {
       ElMessage.error('删除失败')
     }
   }).catch(() => {})
 }
 
-// 显示权限配置对话框
-const showPermissionDialog = async (row) => {
-  currentRole.value = row
-  permissionVisible.value = true
-
-  try {
-    const res = await getRolePermissionTree(row.roleId)
-    if (res.code === 200) {
-      permissionTree.value = res.data.tree || []
-      // 设置已选中的权限
-      const checkedKeys = res.data.checkedKeys || []
-      if (checkedKeys.length > 0) {
-        permissionTreeRef.value?.setCheckedKeys(checkedKeys)
-      }
-    }
-  } catch (error) {
-    console.error('获取权限树失败:', error)
-    ElMessage.error('获取权限数据失败')
-  }
+// 权限配置
+const configPermissions = (role) => {
+  currentRole.value = role
+  selectedPermIds.value = [...(role.modules || [])]
+  permDialogVisible.value = true
 }
 
-// 展开全部
-const expandAll = () => {
-  const nodes = permissionTreeRef.value?.getAllNodes() || []
-  nodes.forEach(node => permissionTreeRef.value?.setCurrentNode(node))
-  // 实际展开所有节点需要遍历设置
-  const expandNode = (nodes) => {
-    nodes.forEach(node => {
-      if (node.childNodes && node.childNodes.length) {
-        node.expanded = true
-        expandNode(node.childNodes)
-      }
-    })
-  }
-  expandNode(permissionTreeRef.value?.root?.childNodes || [])
-}
-
-// 收起全部
-const collapseAll = () => {
-  const collapseNode = (nodes) => {
-    nodes.forEach(node => {
-      if (node.childNodes && node.childNodes.length) {
-        node.expanded = false
-        collapseNode(node.childNodes)
-      }
-    })
-  }
-  collapseNode(permissionTreeRef.value?.root?.childNodes || [])
-}
-
-// 全选
 const checkAll = () => {
-  permissionTreeRef.value?.setCheckedNodes(permissionTree.value)
+  selectedPermIds.value = sortedPermissions.value.map(p => p.id)
 }
-
-// 取消全选
 const uncheckAll = () => {
-  permissionTreeRef.value?.setCheckedKeys([])
+  selectedPermIds.value = []
 }
 
-// 保存权限配置
 const savePermissions = async () => {
-  permissionSaving.value = true
+  const roleId = currentRole.value.roleId
+  const allPermIds = sortedPermissions.value.map(p => p.id)
+  const newPermIds = selectedPermIds.value
+
+  savingPerm.value = true
   try {
-    const checkedKeys = permissionTreeRef.value?.getCheckedKeys() || []
-    const halfCheckedKeys = permissionTreeRef.value?.getHalfCheckedKeys() || []
-    const allCheckedKeys = [...checkedKeys, ...halfCheckedKeys]
-
-    const res = await updateRolePermissions({
-      roleId: currentRole.value.roleId,
-      permissionIds: allCheckedKeys
-    })
-
-    if (res.code === 200) {
-      ElMessage.success('权限配置保存成功')
-      permissionVisible.value = false
-    } else {
-      ElMessage.error(res.message || '保存失败')
+    if (allPermIds.length) {
+      await removePermissionBatch(roleId, allPermIds)
     }
-  } catch (error) {
-    console.error('保存权限失败:', error)
-    ElMessage.error('保存失败')
+    if (newPermIds.length) {
+      await addPermissionBatch(roleId, newPermIds)
+    }
+    ElMessage.success('权限配置更新成功')
+    permDialogVisible.value = false
+    await fetchRoles()
+  } catch (err) {
+    ElMessage.error(err.message || '保存失败')
   } finally {
-    permissionSaving.value = false
+    savingPerm.value = false
   }
 }
 
-// 查看角色用户
-const viewRoleUsers = async (row) => {
-  currentRole.value = row
-  userPageNum.value = 1
-  userListVisible.value = true
-  await fetchRoleUsers()
+const handleSearch = () => {
+  pageNum.value = 1
 }
 
-// 获取角色用户列表
-const fetchRoleUsers = async () => {
-  userListLoading.value = true
-  try {
-    const res = await getRoleUsers({
-      roleId: currentRole.value.roleId,
-      pageNum: userPageNum.value,
-      pageSize: userPageSize.value
-    })
-    if (res.code === 200 && res.data) {
-      roleUsers.value = res.data.records || []
-      userTotal.value = res.data.total || 0
-    }
-  } catch (error) {
-    console.error('获取角色用户失败:', error)
-  } finally {
-    userListLoading.value = false
-  }
-}
-
-onMounted(() => {
-  fetchRoleList()
+onMounted(async () => {
+  await fetchAllPermissions()
+  await fetchRoles()
 })
 </script>
 
@@ -644,73 +339,25 @@ onMounted(() => {
 .roles-management-container {
   padding: 20px;
 }
-
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
 }
-
-.card-header .title {
-  font-size: 16px;
-  font-weight: bold;
-}
-
 .header-actions {
   display: flex;
-  align-items: center;
   gap: 12px;
 }
-
+.perm-actions {
+  margin-bottom: 16px;
+}
+.no-permission {
+  color: #c0c4cc;
+  font-size: 12px;
+}
 .form-tip {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.permission-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.role-info {
-  font-size: 14px;
-  font-weight: bold;
-  color: #409EFF;
-}
-
-.permission-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.permission-node {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.permission-name {
-  font-weight: 500;
-  color: #303133;
-}
-
-.permission-code {
-  font-size: 12px;
-  color: #909399;
-  margin-left: 8px;
 }
 </style>

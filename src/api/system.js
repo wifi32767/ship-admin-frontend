@@ -27,104 +27,78 @@ export const deleteCountry = (id) => {
 
 // ==================== 用户管理 ====================
 
-// 获取用户列表
-export const getUserList = (params) => {
-  return request.get('/api/system/user/list', { params })
+// 获取所有用户列表（分页）
+export const getAllUsers = (pageNum = 1, pageSize = 1000) => {
+  return request.get('/api/user/allUsers', {
+    params: { pageNum, pageSize },
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// 获取用户详情
-export const getUserDetail = (id) => {
-  return request.get(`/api/system/user/${id}`)
+// 用户注册（新增）
+export const register = (data) => {
+  return request.post('/api/user/register', data, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// 新增用户
-export const addUser = (data) => {
-  return request.post('/api/system/user/add', data)
+// 修改用户信息
+export const updateUser = (userVO) => {
+  return request.put('/api/user/updateUser', userVO, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// 更新用户
-export const updateUser = (data) => {
-  return request.post('/api/system/user/update', data)
-}
-
-// 删除用户
-export const deleteUser = (id) => {
-  return request.delete(`/api/system/user/${id}`)
-}
-
-// 重置密码
-export const resetPassword = (data) => {
-  return request.post('/api/system/user/reset-password', data)
-}
-
-// 切换用户状态
-export const toggleUserStatus = (data) => {
-  return request.post('/api/system/user/toggle-status', data)
+// 删除用户（用户名放在 body 中）
+export const deleteUserByUsername = (username) => {
+  return request.delete('/api/user/deleteUser', {
+    data: username,
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
 // ==================== 角色管理 ====================
 
-// 获取角色列表
-export const getRoleList = (params) => {
-  return request.get('/api/system/role/list', { params })
-}
-
-// 获取角色详情
-export const getRoleDetail = (id) => {
-  return request.get(`/api/system/role/${id}`)
+// 获取所有角色列表
+export const getAllUserRoles = () => {
+  return request.get('/api/user/allUsersRole', {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
 // 新增角色
-export const addRole = (data) => {
-  return request.post('/api/system/role/add', data)
-}
-
-// 更新角色
-export const updateRole = (data) => {
-  return request.post('/api/system/role/update', data)
+export const addUserRole = (userRoleVO) => {
+  return request.post('/api/user/addUserRole', userRoleVO, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
 // 删除角色
-export const deleteRole = (id) => {
-  return request.delete(`/api/system/role/${id}`)
+export const removeUserRole = (roleId) => {
+  return request.delete('/api/user/removeUserRole', {
+    params: { roleId },
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// 更新角色权限
-export const updateRolePermissions = (data) => {
-  return request.post('/api/system/role/permissions', data)
+// 获取所有模块权限（Map<Integer, String>）
+export const getAllModules = () => {
+  return request.get('/api/user/allModules', {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// 切换角色状态
-export const toggleRoleStatus = (data) => {
-  return request.post('/api/system/role/toggle-status', data)
+// 批量添加角色权限
+export const addPermissionBatch = (roleId, permissionIds) => {
+  return request.post('/api/user/addPermissionBatch', { roleId, permissionIds }, {
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
-// ==================== 操作日志 ====================
-
-// 获取用户操作日志
-export const getUserLogs = (params) => {
-  return request.get('/api/system/log/user', { params })
-}
-
-// 获取登录日志
-export const getLoginLogs = (params) => {
-  return request.get('/api/system/log/login', { params })
-}
-
-// ==================== 权限管理 ====================
-
-// 获取权限树
-export const getPermissionTree = () => {
-  return request.get('/api/system/permission/tree')
-}
-
-// 获取角色权限树
-export const getRolePermissionTree = (roleId) => {
-  return request.get(`/api/system/role/${roleId}/permissions`)
-}
-// ==================== 角色用户 ====================
-
-// 获取角色下的用户
-export const getRoleUsers = (params) => {
-  return request.get('/api/system/role/users', { params })
+// 批量删除角色权限
+export const removePermissionBatch = (roleId, permissionIds) => {
+  return request.delete('/api/user/removePermissionBatch', {
+    params: { roleId, permissionIds },
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
