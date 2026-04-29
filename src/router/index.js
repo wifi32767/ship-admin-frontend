@@ -6,7 +6,7 @@ const routes = [
         path: '/login',
         name: 'Login',
         component: () => import('@/views/login/index.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: false }
     },
     {
         path: '/',
@@ -90,22 +90,23 @@ const router = createRouter({
     routes
 })
 
-// 路由守卫
-router.beforeEach(async (to, from, next) => {
+// 修改路由守卫（新写法）
+router.beforeEach(async (to, from) => {
     const userStore = useUserStore()
-    const requiresAuth = to.meta.requiresAuth !== false
+    const requiresAuth = to.meta.requiresAuth !== false  // 默认需要认证（除了显式标记 false）
     
     console.log('路由守卫:', { to: to.path, requiresAuth, isLoggedIn: userStore.isLoggedIn })
     
     if (requiresAuth && !userStore.isLoggedIn) {
         // 未登录，跳转到登录页
-        next('/login')
-    } else if (to.path === '/login' && userStore.isLoggedIn) {
-        // 已登录，访问登录页，跳转到首页
-        next('/')
-    } else {
-        next()
+        return '/login'
     }
+    if (to.path === '/login' && userStore.isLoggedIn) {
+        // 已登录，访问登录页，跳转到首页
+        return '/'
+    }
+    // 允许访问
+    return true
 })
 
 export default router

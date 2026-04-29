@@ -88,17 +88,17 @@ export const getAllModules = () => {
   })
 }
 
-// 批量添加角色权限
+// 批量添加权限：roleId 作为 query 参数，permissionIds 作为 JSON 数组放在请求体
 export const addPermissionBatch = (roleId, permissionIds) => {
-  return request.post('/api/user/addPermissionBatch', { roleId, permissionIds }, {
+  return request.post(`/api/user/addPermissionBatch?roleId=${roleId}`, permissionIds, {
     headers: { 'Content-Type': 'application/json' }
   })
 }
 
-// 批量删除角色权限
+// 批量删除权限：roleId 作为 query 参数，permissionIds 作为 JSON 数组放在请求体
 export const removePermissionBatch = (roleId, permissionIds) => {
-  return request.delete('/api/user/removePermissionBatch', {
-    params: { roleId, permissionIds },
+  return request.delete(`/api/user/removePermissionBatch?roleId=${roleId}`, {
+    data: permissionIds,
     headers: { 'Content-Type': 'application/json' }
   })
 }
