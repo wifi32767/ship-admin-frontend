@@ -141,6 +141,7 @@ import {
     Document,
     DocumentCopy,
     PieChart,
+    Folder,
     User,
     Fold,
     Expand,
@@ -148,9 +149,7 @@ import {
     ArrowDown,
     SwitchButton,
     Calendar,
-    TrendCharts,
     Location,
-    OfficeBuilding
 } from '@element-plus/icons-vue'
 import { el } from 'element-plus/es/locale/index.mjs'
 
