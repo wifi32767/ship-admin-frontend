@@ -30,6 +30,14 @@
           </template>
         </el-table-column>
         <el-table-column prop="mReptileModelTime" label="录入时间" width="160" />
+        <el-table-column prop="mReptileModelScriptAddress" label="Fetcher" width="130" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.mReptileModelScriptAddress" type="info" effect="plain">
+              {{ row.mReptileModelScriptAddress }}
+            </el-tag>
+            <span v-else style="color:#C0C4CC">未绑定</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="280" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="editModel(row)">编辑</el-button>
@@ -40,7 +48,6 @@
             >
               {{ row.mReptileModelState === 'running' ? '停止' : '启动' }}
             </el-button>
-            <el-button type="info" link @click="viewLogs(row)">查看日志</el-button>
             <el-button type="danger" link @click="deleteModel(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -99,51 +106,57 @@
           <div class="form-tip">支持多个网址，用英文分号(;)分隔</div>
         </el-form-item>
 
-        <el-form-item label="爬虫脚本">
-          <el-upload
-            ref="scriptUploadRef"
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleScriptChange"
-            :on-remove="handleScriptRemove"
-            accept=".py"
-          >
-            <el-button type="primary">
-              <el-icon><Upload /></el-icon>
-              选择Python脚本文件
-            </el-button>
-            <template #tip>
-              <div class="el-upload__tip">支持 .py 格式，脚本需遵循爬虫规范接口</div>
-            </template>
-          </el-upload>
-          <div v-if="formData.existingScript" class="existing-file">
-            <el-icon><Document /></el-icon>
-            <span>当前脚本：{{ formData.existingScript }}</span>
-            <el-button type="danger" link @click="formData.existingScript = ''">删除</el-button>
-          </div>
-        </el-form-item>
+        <el-form-item label="采集器">
+          <div style="width:100%">
+            <el-radio-group v-model="fetcherMode" style="margin-bottom:12px">
+              <el-radio value="upload">上传新脚本</el-radio>
+              <el-radio value="select">使用已有 fetcher</el-radio>
+            </el-radio-group>
 
-        <el-form-item label="启动文件">
-          <el-upload
-            ref="startupUploadRef"
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleStartupChange"
-            :on-remove="handleStartupRemove"
-            accept=".py"
-          >
-            <el-button type="primary">
-              <el-icon><Upload /></el-icon>
-              选择启动文件
-            </el-button>
-            <template #tip>
-              <div class="el-upload__tip">爬虫的入口启动文件，需包含 main 函数</div>
+            <template v-if="fetcherMode === 'upload'">
+              <el-upload
+                ref="scriptUploadRef"
+                :auto-upload="false"
+                :limit="1"
+                :on-change="handleScriptChange"
+                :on-remove="handleScriptRemove"
+                accept=".py,.zip"
+              >
+                <el-button type="primary">
+                  <el-icon><Upload /></el-icon>
+                  选择脚本文件 (.py / .zip)
+                </el-button>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    <b>.py</b>：单文件，须含 <b>{Name}Fetcher(BaseFetcher)</b> 类并实现 _run_spider()<br>
+                    <b>.zip</b>：多文件包，zip 根目录须包含 <b>{name}_fetcher.py</b> 作为入口，其余辅助模块自由放置
+                  </div>
+                </template>
+              </el-upload>
+              <div v-if="formData.existingScript && !scriptFile" class="existing-file">
+                <el-icon><Document /></el-icon>
+                <span>当前已绑定：{{ formData.existingScript }}</span>
+              </div>
             </template>
-          </el-upload>
-          <div v-if="formData.existingStartup" class="existing-file">
-            <el-icon><Document /></el-icon>
-            <span>当前启动文件：{{ formData.existingStartup }}</span>
-            <el-button type="danger" link @click="formData.existingStartup = ''">删除</el-button>
+
+            <template v-if="fetcherMode === 'select'">
+              <el-select
+                v-model="formData.mReptileModelScriptAddress"
+                placeholder="选择已注册的 fetcher"
+                style="width:260px"
+                :loading="fetcherListLoading"
+              >
+                <el-option
+                  v-for="name in availableFetchers"
+                  :key="name"
+                  :label="name"
+                  :value="name"
+                />
+              </el-select>
+              <el-button link type="primary" @click="loadFetcherList" style="margin-left:8px">
+                <el-icon><Refresh /></el-icon>刷新
+              </el-button>
+            </template>
           </div>
         </el-form-item>
 
@@ -264,80 +277,6 @@
       </template>
     </el-dialog>
 
-    <!-- 运行日志对话框 -->
-    <el-dialog v-model="logDialogVisible" title="爬虫运行日志" width="900px">
-      <div class="log-controls">
-        <el-radio-group v-model="logFilter" @change="fetchRunLogs" size="small">
-          <el-radio-button label="all">全部</el-radio-button>
-          <el-radio-button label="success">成功</el-radio-button>
-          <el-radio-button label="failed">失败</el-radio-button>
-          <el-radio-button label="running">运行中</el-radio-button>
-        </el-radio-group>
-        <el-button size="small" @click="fetchRunLogs">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
-        <el-button size="small" type="danger" @click="clearLogs">清空日志</el-button>
-      </div>
-
-      <el-table :data="runLogs" stripe v-loading="logLoading" max-height="500">
-        <el-table-column prop="runTime" label="运行时间" width="160" />
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getRunStateType(row.runState)">
-              {{ getRunStateText(row.runState) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="resultDesc" label="结果描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="csvAddress" label="CSV文件" width="150">
-          <template #default="{ row }">
-            <el-button v-if="row.csvAddress" type="primary" link @click="downloadCsv(row.csvAddress)">
-              下载
-            </el-button>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="entryState" label="录入状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.entryState === '已录入' ? 'success' : 'info'" size="small">
-              {{ row.entryState || '未录入' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="entryTime" label="录入时间" width="160" />
-        <el-table-column label="操作" width="100" align="center">
-          <template #default="{ row }">
-            <el-button
-              v-if="row.entryState !== '已录入' && row.csvAddress"
-              type="primary"
-              link
-              @click="importToDatabase(row)"
-            >
-              录入
-            </el-button>
-            <el-button type="info" link @click="viewLogDetail(row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-pagination
-        v-model:current-page="logPageNum"
-        v-model:page-size="logPageSize"
-        :total="logTotal"
-        layout="total, sizes, prev, pager, next"
-        @size-change="fetchRunLogs"
-        @current-change="fetchRunLogs"
-        style="margin-top: 20px; justify-content: flex-end"
-        size="small"
-      />
-    </el-dialog>
-
-    <!-- 日志详情对话框 -->
-    <el-dialog v-model="logDetailVisible" title="日志详情" width="700px">
-      <pre class="log-detail">{{ currentLogDetail }}</pre>
-    </el-dialog>
-
     <!-- Cron表达式帮助对话框 -->
     <el-dialog v-model="cronHelpVisible" title="Cron表达式说明" width="600px">
       <div class="cron-help">
@@ -369,10 +308,7 @@ import {
   deleteModel as deleteModelApi,
   startModel,
   stopModel,
-  getRunLogs,
-  clearRunLogs,
-  importCsvToDatabase,
-  downloadCsvFile
+  getFetcherList,
 } from '@/api/model'
 
 // ── 列表 ────────────────────────────────────────────────
@@ -389,21 +325,24 @@ const formRef       = ref()
 const saving        = ref(false)
 
 // ── 文件上传 ref ─────────────────────────────────────────
-const scriptUploadRef  = ref()
-const startupUploadRef = ref()
-const scriptFile       = ref(null)
-const startupFile      = ref(null)
+const scriptUploadRef = ref()
+const scriptFile      = ref(null)
+
+// ── Fetcher 模式 ──────────────────────────────────────────
+const fetcherMode        = ref('upload')  // 'upload' | 'select'
+const availableFetchers  = ref([])
+const fetcherListLoading = ref(false)
 
 // ── 表单数据 ─────────────────────────────────────────────
 const formData = reactive({
-  mReptileModelId:        null,
-  mReptileModelName:      '',
-  mReptileModelIntroduce: '',
-  mReptileModelWeb:       '',
-  mReptileModelState:     'stopped',
-  cronExpression:         '',
-  existingScript:         '',
-  existingStartup:        '',
+  mReptileModelId:           null,
+  mReptileModelName:         '',
+  mReptileModelIntroduce:    '',
+  mReptileModelWeb:          '',
+  mReptileModelState:        'stopped',
+  cronExpression:            '',
+  existingScript:            '',
+  mReptileModelScriptAddress: '',
   // 每项结构：{ keywordId, keywordName, useFlag, incrementalSpiderTime }
   keywords: []
 })
@@ -432,27 +371,12 @@ const handleKwPageChange = (page) => {
   kwPageNum.value = page
 }
 
-// ── 日志 ─────────────────────────────────────────────────
-const logDialogVisible = ref(false)
-const currentModelId   = ref(null)
-const currentModelName = ref('')
-const runLogs          = ref([])
-const logLoading       = ref(false)
-const logFilter        = ref('all')
-const logPageNum       = ref(1)
-const logPageSize      = ref(10)
-const logTotal         = ref(0)
-const logDetailVisible = ref(false)
-const currentLogDetail = ref('')
-
 // ── Cron 帮助 ────────────────────────────────────────────
 const cronHelpVisible = ref(false)
 
 // ── 状态映射 ─────────────────────────────────────────────
-const getStateType    = (s) => ({ running: 'success', stopped: 'info', error: 'danger' }[s] || 'warning')
-const getStateText    = (s) => ({ running: '运行中', stopped: '已停止', error: '异常' }[s] || s)
-const getRunStateType = (s) => ({ success: 'success', failed: 'danger', running: 'warning' }[s] || 'info')
-const getRunStateText = (s) => ({ success: '成功', failed: '失败', running: '运行中' }[s] || s)
+const getStateType = (s) => ({ running: 'success', stopped: 'info', error: 'danger' }[s] || 'warning')
+const getStateText = (s) => ({ running: '运行中', stopped: '已停止', error: '异常' }[s] || s)
 
 
 // ================================================================
@@ -475,11 +399,28 @@ const fetchModelList = async () => {
 
 
 // ================================================================
+// Fetcher 列表
+// ================================================================
+const loadFetcherList = async () => {
+  fetcherListLoading.value = true
+  try {
+    const res = await getFetcherList()
+    if (res.code === 200) availableFetchers.value = res.data || []
+  } catch {
+    ElMessage.error('获取 fetcher 列表失败')
+  } finally {
+    fetcherListLoading.value = false
+  }
+}
+
+
+// ================================================================
 // 新增 / 编辑对话框
 // ================================================================
 const showAddDialog = () => {
   dialogTitle.value = '新增模型'
   resetForm()
+  loadFetcherList()
   dialogVisible.value = true
 }
 
@@ -496,8 +437,10 @@ const editModel = async (row) => {
       formData.mReptileModelWeb       = d.mReptileModelWeb
       formData.mReptileModelState     = d.mReptileModelState
       formData.cronExpression         = d.cronExpression || ''
-      formData.existingScript         = d.mReptileModelScriptAddress || ''
-      formData.existingStartup        = d.mReptileModelAddress       || ''
+      formData.existingScript             = d.mReptileModelScriptAddress || ''
+      formData.mReptileModelScriptAddress = d.mReptileModelScriptAddress || ''
+      fetcherMode.value = 'upload'
+      loadFetcherList()
       formData.keywords = (d.keywords || []).map(k => ({
         keywordId:             k.keywordId,
         keywordName:           k.keywordName,
@@ -517,25 +460,39 @@ const resetForm = () => {
   formData.mReptileModelIntroduce = ''
   formData.mReptileModelWeb       = ''
   formData.mReptileModelState     = 'stopped'
-  formData.cronExpression         = ''
-  formData.existingScript         = ''
-  formData.existingStartup        = ''
-  formData.keywords               = []
-  kwPageNum.value                 = 1
-  scriptFile.value                = null
-  startupFile.value               = null
+  formData.cronExpression              = ''
+  formData.existingScript              = ''
+  formData.mReptileModelScriptAddress  = ''
+  formData.keywords                    = []
+  fetcherMode.value                    = 'upload'
+  kwPageNum.value         = 1
+  scriptFile.value        = null
   scriptUploadRef.value?.clearFiles()
-  startupUploadRef.value?.clearFiles()
   formRef.value?.resetFields()
 }
 
 const closeDialog = () => resetForm()
 
 // ── 文件处理 ─────────────────────────────────────────────
-const handleScriptChange  = (file) => { scriptFile.value  = file.raw }
-const handleScriptRemove  = ()     => { scriptFile.value  = null }
-const handleStartupChange = (file) => { startupFile.value = file.raw }
-const handleStartupRemove = ()     => { startupFile.value = null }
+const normalizeFetcherName = (name = '') => {
+  return name
+    .trim()
+    .replace(/\.(py|zip)$/i, '')
+    .replace(/_fetcher$/i, '')
+    .replace(/[^0-9a-zA-Z_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase()
+}
+
+const handleScriptChange = (file) => {
+  scriptFile.value = file.raw
+  formData.mReptileModelScriptAddress = normalizeFetcherName(file.name)
+}
+
+const handleScriptRemove = () => {
+  scriptFile.value = null
+  formData.mReptileModelScriptAddress = formData.existingScript || ''
+}
 
 // ── 关键词操作 ────────────────────────────────────────────
 // 新增后自动跳到最后一页
@@ -580,6 +537,14 @@ const saveModel = async () => {
       return
     }
 
+    const needFetcher = fetcherMode.value === 'upload'
+      ? !(formData.existingScript || scriptFile.value)
+      : !formData.mReptileModelScriptAddress
+    if (needFetcher) {
+      ElMessage.warning('请绑定采集器 fetcher')
+      return
+    }
+
     saving.value = true
     try {
       const fd = new FormData()
@@ -597,8 +562,12 @@ const saveModel = async () => {
         }))
       ))
 
-      if (scriptFile.value)  fd.append('scriptFile',  scriptFile.value)
-      if (startupFile.value) fd.append('startupFile', startupFile.value)
+      if (scriptFile.value) {
+        fd.append('scriptFile', scriptFile.value)
+        fd.append('fetcherName', formData.mReptileModelScriptAddress)
+      } else if (fetcherMode.value === 'select' && formData.mReptileModelScriptAddress) {
+        fd.append('fetcherName', formData.mReptileModelScriptAddress)
+      }
 
       const res = await saveModelApi(fd)
       if (res.code === 200) {
@@ -648,79 +617,6 @@ const deleteModel = (row) => {
       else ElMessage.error(res.message || '删除失败')
     } catch { ElMessage.error('删除失败') }
   }).catch(() => {})
-}
-
-
-// ================================================================
-// 运行日志
-// ================================================================
-const viewLogs = async (row) => {
-  currentModelId.value   = row.mReptileModelId
-  currentModelName.value = row.mReptileModelName
-  logPageNum.value       = 1
-  logDialogVisible.value = true
-  await fetchRunLogs()
-}
-
-const fetchRunLogs = async () => {
-  logLoading.value = true
-  try {
-    const res = await getRunLogs({
-      modelId:  currentModelId.value,
-      state:    logFilter.value === 'all' ? '' : logFilter.value,
-      pageNum:  logPageNum.value,
-      pageSize: logPageSize.value
-    })
-    if (res.code === 200 && res.data) {
-      runLogs.value  = res.data.records || []
-      logTotal.value = res.data.total   || 0
-    }
-  } catch { ElMessage.error('获取日志失败') }
-  finally { logLoading.value = false }
-}
-
-const clearLogs = () => {
-  ElMessageBox.confirm(`确定要清空模型"${currentModelName.value}"的运行日志吗？`, '提示', {
-    confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
-  }).then(async () => {
-    try {
-      const res = await clearRunLogs(currentModelId.value)
-      if (res.code === 200) { ElMessage.success('清空成功'); fetchRunLogs() }
-      else ElMessage.error(res.message || '清空失败')
-    } catch { ElMessage.error('清空失败') }
-  }).catch(() => {})
-}
-
-const downloadCsv = async (csvAddress) => {
-  try {
-    const res  = await downloadCsvFile(csvAddress)
-    const blob = new Blob([res], { type: 'text/csv' })
-    const link = document.createElement('a')
-    link.href     = URL.createObjectURL(blob)
-    link.download = csvAddress.split('/').pop()
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(link.href)
-    ElMessage.success('下载成功')
-  } catch { ElMessage.error('下载失败') }
-}
-
-const importToDatabase = (row) => {
-  ElMessageBox.confirm('确定要将CSV数据导入数据库吗？', '提示', {
-    confirmButtonText: '确定', cancelButtonText: '取消', type: 'info'
-  }).then(async () => {
-    try {
-      const res = await importCsvToDatabase({ logId: row.logId, csvAddress: row.csvAddress })
-      if (res.code === 200) { ElMessage.success('导入成功'); fetchRunLogs() }
-      else ElMessage.error(res.message || '导入失败')
-    } catch { ElMessage.error('导入失败') }
-  }).catch(() => {})
-}
-
-const viewLogDetail = (row) => {
-  currentLogDetail.value = JSON.stringify(row, null, 2)
-  logDetailVisible.value = true
 }
 
 
@@ -783,25 +679,6 @@ onMounted(fetchModelList)
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-
-.log-controls {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-  align-items: center;
-}
-
-.log-detail {
-  max-height: 400px;
-  overflow: auto;
-  background-color: #f5f7fa;
-  padding: 16px;
-  border-radius: 8px;
-  font-family: monospace;
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
 }
 
 .cron-help h4 {
