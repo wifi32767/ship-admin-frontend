@@ -151,7 +151,6 @@ import {
     Calendar,
     Location,
 } from '@element-plus/icons-vue'
-import { el } from 'element-plus/es/locale/index.mjs'
 
 const route = useRoute()
 const router = useRouter()

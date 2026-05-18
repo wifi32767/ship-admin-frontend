@@ -59,3 +59,8 @@ export const downloadCsvFile = (filePath) => {
 export const deleteKeyword = (id) => {
   return request.delete(`/api/model/keyword/${id}`)
 }
+
+// 获取已注册的 fetcher 列表
+export const getFetcherList = () => {
+  return request.get('/api/fetcher/list')
+}

@@ -9,6 +9,45 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/portal',
+        name: 'Portal',
+        component: () => import('@/views/visitor/layout.vue'),
+        meta: { requiresAuth: false },
+        redirect: '/portal/home',
+        children: [
+            {
+                path: 'home',
+                name: 'PortalHome',
+                component: () => import('@/views/visitor/home.vue'),
+                meta: { title: '门户首页' }
+            },
+            {
+                path: 'industry',
+                name: 'PortalIndustry',
+                component: () => import('@/views/visitor/industry.vue'),
+                meta: { title: '行业动态' }
+            },
+            {
+                path: 'cases',
+                name: 'PortalCases',
+                component: () => import('@/views/visitor/cases.vue'),
+                meta: { title: '典型案例' }
+            },
+            {
+                path: 'infrastructure',
+                name: 'PortalInfrastructure',
+                component: () => import('@/views/visitor/infrastructure.vue'),
+                meta: { title: '基础设施建设信息' }
+            },
+            {
+                path: 'device/:id',
+                name: 'PortalDevice',
+                component: () => import('@/views/visitor/device.vue'),
+                meta: { title: '设备详情' }
+            }
+        ]
+    },
+    {
         path: '/',
         name: 'Main',
         component: () => import('@/views/main/index.vue'),
