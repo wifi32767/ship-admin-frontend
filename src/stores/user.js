@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { login as loginApi, logout as logoutApi } from '@/api/user'
 import { ElMessage } from 'element-plus'
+import Cookies from 'js-cookie'
 
 export const useUserStore = defineStore('user', () => {
     const token = ref(localStorage.getItem('token') || '')
@@ -25,7 +26,7 @@ export const useUserStore = defineStore('user', () => {
                 
                 localStorage.setItem('token', newToken)
                 localStorage.setItem('username', usernameVal)
-                
+                Cookies.set('token', newToken, { expires: 30, path: '/' }) 
                 console.log('登录成功，token已保存')
                 return true
             } else {

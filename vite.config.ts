@@ -14,7 +14,7 @@ export default defineConfig({
     proxy: {
       // 代理所有以 /api 开头的请求
       '/api': {
-        target: 'http://192.168.31.75:8091',
+        target: 'http://localhost:8091',
         changeOrigin: true,
       }
     },
