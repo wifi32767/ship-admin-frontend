@@ -9,16 +9,6 @@
               <el-icon><Plus /></el-icon>
               新增角色
             </el-button>
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索角色名称"
-              style="width: 200px"
-              clearable
-              @clear="handleSearch"
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix><el-icon><Search /></el-icon></template>
-            </el-input>
           </div>
         </div>
       </template>
@@ -127,7 +117,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 import {
   getAllUserRoles,
   getAllModules,
@@ -140,7 +130,7 @@ import {
 // 角色列表
 const roleList = ref([])
 const loading = ref(false)
-const searchKeyword = ref('')
+
 const pageNum = ref(1)
 const pageSize = ref(10)
 
@@ -173,23 +163,12 @@ const sortedPermissions = computed(() => {
     .sort((a, b) => a.id - b.id)
 })
 
-// 过滤角色列表
+// 分页角色列表
 const filteredRoleList = computed(() => {
-  let list = roleList.value
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase()
-    list = list.filter(r => r.roleName?.toLowerCase().includes(kw))
-  }
   const start = (pageNum.value - 1) * pageSize.value
-  return list.slice(start, start + pageSize.value)
+  return roleList.value.slice(start, start + pageSize.value)
 })
-const filteredTotal = computed(() => {
-  let list = roleList.value
-  if (searchKeyword.value) {
-    list = list.filter(r => r.roleName?.toLowerCase().includes(searchKeyword.value.toLowerCase()))
-  }
-  return list.length
-})
+const filteredTotal = computed(() => roleList.value.length)
 
 // 获取所有角色
 const fetchRoles = async () => {
@@ -323,10 +302,6 @@ const savePermissions = async () => {
   } finally {
     savingPerm.value = false
   }
-}
-
-const handleSearch = () => {
-  pageNum.value = 1
 }
 
 onMounted(async () => {

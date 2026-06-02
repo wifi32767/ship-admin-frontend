@@ -9,23 +9,16 @@
               <el-icon><Plus /></el-icon>
               新增用户
             </el-button>
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索用户名/昵称/手机号"
-              style="width: 220px"
-              clearable
-              @clear="handleSearch"
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix><el-icon><Search /></el-icon></template>
-            </el-input>
             <el-select
               v-model="searchRoleId"
               placeholder="角色筛选"
-              clearable
               style="width: 140px"
               @change="handleSearch"
             >
+              <el-option
+                value=""
+                label="全部"
+              />
               <el-option
                 v-for="role in roleList"
                 :key="role.roleId"
@@ -54,7 +47,6 @@
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="showEditDialog(row)">编辑</el-button>
-            <el-button type="warning" link @click="resetPassword(row)">重置密码</el-button>
             <el-button type="danger" link @click="deleteUser(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -138,7 +130,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 import {
   getAllUsers,
   register,
@@ -150,7 +142,6 @@ import {
 const allUsers = ref([])          // 原始用户列表
 const roleList = ref([])          // 所有角色
 const loading = ref(false)
-const searchKeyword = ref('')
 const searchRoleId = ref('')
 
 // 前端分页
@@ -160,14 +151,6 @@ const pageSize = ref(10)
 // 筛选后的用户列表
 const filteredUsers = computed(() => {
   let list = allUsers.value
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase()
-    list = list.filter(u =>
-      u.userName?.toLowerCase().includes(kw) ||
-      u.nickName?.toLowerCase().includes(kw) ||
-      u.phoneNumber?.includes(kw)
-    )
-  }
   if (searchRoleId.value) {
     list = list.filter(u => u.userRole?.roleId === searchRoleId.value)
   }
@@ -272,10 +255,6 @@ const fetchRoleList = async () => {
   }
 }
 
-const handleSearch = () => {
-  pageNum.value = 1
-}
-
 const showAddDialog = () => {
   dialogTitle.value = '新增用户'
   isEdit.value = false
@@ -287,25 +266,7 @@ const showAddDialog = () => {
 const showEditDialog = (row) => {
   dialogTitle.value = '编辑用户'
   isEdit.value = true
-  resetPwdMode.value = false
-  Object.assign(formData, {
-    userId: row.userId,
-    userName: row.userName,
-    nickName: row.nickName,
-    phoneNumber: row.phoneNumber,
-    email: row.email,
-    roleId: row.userRole?.roleId || null,
-    remark: row.remark,
-    password: '',
-    confirmPassword: ''
-  })
-  dialogVisible.value = true
-}
-
-const resetPassword = (row) => {
-  resetPwdMode.value = true
-  isEdit.value = true
-  dialogTitle.value = '重置密码'
+  resetPwdMode.value = true  // 启用密码编辑
   Object.assign(formData, {
     userId: row.userId,
     userName: row.userName,

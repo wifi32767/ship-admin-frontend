@@ -13,15 +13,6 @@
           </template>
         </el-tab-pane>
 
-        <el-tab-pane label="操作日志" name="operation">
-          <template #label>
-            <span class="tab-label">
-              <el-icon><Edit /></el-icon>
-              操作日志
-            </span>
-          </template>
-        </el-tab-pane>
-
         <el-tab-pane label="爬虫运行日志" name="spider">
           <template #label>
             <span class="tab-label">
@@ -31,23 +22,6 @@
           </template>
         </el-tab-pane>
 
-        <el-tab-pane label="系统日志" name="system">
-          <template #label>
-            <span class="tab-label">
-              <el-icon><Setting /></el-icon>
-              系统日志
-            </span>
-          </template>
-        </el-tab-pane>
-
-        <el-tab-pane label="大模型调用日志" name="llm">
-          <template #label>
-            <span class="tab-label">
-              <el-icon><Cpu /></el-icon>
-              大模型日志
-            </span>
-          </template>
-        </el-tab-pane>
       </el-tabs>
 
       <!-- 搜索筛选栏 -->
@@ -75,7 +49,7 @@
             />
           </el-form-item>
 
-          <el-form-item label="状态" v-if="activeTab !== 'system'">
+          <el-form-item label="状态">
             <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px">
               <el-option label="成功" value="success" />
               <el-option label="失败" value="failed" />
@@ -132,7 +106,7 @@
       </div>
 
       <!-- 日志统计卡片 -->
-      <el-row :gutter="20" class="stats-row" v-if="activeTab === 'import' || activeTab === 'operation'">
+      <el-row :gutter="20" class="stats-row" v-if="activeTab === 'import'">
         <el-col :span="6">
           <el-statistic title="今日新增" :value="todayCount" />
         </el-col>
@@ -178,42 +152,6 @@
           </template>
         </el-table-column>
         <el-table-column prop="logContent" label="日志内容" min-width="250" show-overflow-tooltip />
-        <el-table-column label="操作" width="150" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="viewLogDetail(row)">详情</el-button>
-            <el-button type="danger" link @click="deleteLog(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 操作日志表格 -->
-      <el-table
-        v-else-if="activeTab === 'operation'"
-        :data="logList"
-        stripe
-        v-loading="loading"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="operationTime" label="操作时间" width="180" sortable />
-        <el-table-column prop="operator" label="操作人" width="120" />
-        <el-table-column label="操作类型" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getOperationTypeTag(row.operationType)">
-              {{ getOperationTypeText(row.operationType) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="operationModule" label="操作模块" width="120" />
-        <el-table-column prop="targetName" label="操作对象" min-width="200" show-overflow-tooltip />
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'success' ? 'success' : 'danger'">
-              {{ row.status === 'success' ? '成功' : '失败' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="ipAddress" label="IP地址" width="140" />
         <el-table-column label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewLogDetail(row)">详情</el-button>
@@ -278,68 +216,6 @@
         </el-table-column>
       </el-table>
 
-      <!-- 系统日志表格 -->
-      <el-table
-        v-else-if="activeTab === 'system'"
-        :data="logList"
-        stripe
-        v-loading="loading"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="logTime" label="日志时间" width="180" sortable />
-        <el-table-column label="级别" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getLevelType(row.level)">
-              {{ row.level }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="module" label="模块" width="150" />
-        <el-table-column prop="message" label="日志信息" min-width="300" show-overflow-tooltip />
-        <el-table-column prop="ipAddress" label="IP地址" width="140" />
-        <el-table-column label="操作" width="100" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="viewLogDetail(row)">详情</el-button>
-            <el-button type="danger" link @click="deleteLog(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 大模型调用日志表格 -->
-      <el-table
-        v-else-if="activeTab === 'llm'"
-        :data="logList"
-        stripe
-        v-loading="loading"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="callTime" label="调用时间" width="180" sortable />
-        <el-table-column prop="userName" label="用户" width="100" />
-        <el-table-column prop="question" label="用户问题" min-width="250" show-overflow-tooltip />
-        <el-table-column prop="generatedSql" label="生成的SQL" min-width="250" show-overflow-tooltip />
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.sqlValid ? 'success' : 'warning'">
-              {{ row.sqlValid ? 'SQL有效' : 'SQL无效' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="responseTime" label="响应时间" width="100" align="center">
-          <template #default="{ row }">
-            <span :class="row.responseTime > 5000 ? 'slow' : ''">{{ row.responseTime }}ms</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="viewLogDetail(row)">详情</el-button>
-            <el-button type="info" link @click="provideFeedback(row)">反馈</el-button>
-            <el-button type="danger" link @click="deleteLog(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
       <!-- 分页 -->
       <div class="pagination-container">
         <div class="batch-actions" v-if="selectedRows.length > 0">
@@ -376,37 +252,6 @@
         <el-button type="primary" @click="copyLogDetail" v-if="currentLogDetail">
           复制内容
         </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 大模型反馈对话框 -->
-    <el-dialog
-      v-model="feedbackVisible"
-      title="大模型反馈"
-      width="500px"
-    >
-      <el-form :model="feedbackForm" label-width="100px">
-        <el-form-item label="SQL正确性">
-          <el-radio-group v-model="feedbackForm.sqlCorrect">
-            <el-radio :label="true">正确</el-radio>
-            <el-radio :label="false">错误</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="结果满意度">
-          <el-rate v-model="feedbackForm.satisfaction" :max="5" />
-        </el-form-item>
-        <el-form-item label="反馈建议" v-if="feedbackForm.sqlCorrect === false">
-          <el-input
-            v-model="feedbackForm.suggestion"
-            type="textarea"
-            :rows="3"
-            placeholder="请描述SQL错误或改进建议"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer">
-        <el-button @click="feedbackVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitFeedback">提交反馈</el-button>
       </template>
     </el-dialog>
 

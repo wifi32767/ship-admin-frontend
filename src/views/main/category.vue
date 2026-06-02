@@ -9,18 +9,6 @@
               <el-icon><Plus /></el-icon>
               新增一级分类
             </el-button>
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索分类名称"
-              style="width: 220px"
-              clearable
-              @clear="handleSearch"
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
           </div>
         </div>
       </template>
@@ -147,10 +135,9 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Folder, Document, Memo } from '@element-plus/icons-vue'
+import { Plus, Folder, Document, Memo } from '@element-plus/icons-vue'
 import {
   getCategoryTree,
-  searchCategories,
   createClass,
   updateClass,
   deleteClass,
@@ -166,8 +153,6 @@ import {
 // 列表相关
 const tableData = ref([])
 const loading = ref(false)
-const searchKeyword = ref('')
-const originalTreeData = ref([]) // 存储原始完整树数据
 
 // 统计数据
 const stats = reactive({
@@ -230,45 +215,15 @@ const countCategories = (nodes) => {
   return counts
 }
 
-// 过滤树形数据
-const filterTreeData = (nodes, keyword) => {
-  if (!keyword) return nodes
-
-  const result = []
-  for (const node of nodes) {
-    const matches = node.name.includes(keyword)
-    const filteredChildren = node.children ? filterTreeData(node.children, keyword) : []
-
-    if (matches || filteredChildren.length > 0) {
-      result.push({
-        ...node,
-        children: filteredChildren
-      })
-    }
-  }
-  return result
-}
-
 // 获取分类数据
 const fetchCategories = async () => {
   loading.value = true
   try {
-    let res
-    if (searchKeyword.value) {
-      res = await searchCategories(searchKeyword.value)
-    } else {
-      res = await getCategoryTree()
-    }
+    const res = await getCategoryTree()
     
     if (res.code === 200 && Array.isArray(res.data)) {
-      originalTreeData.value = res.data
-      // 如果有关键字，使用前端过滤（可选，后端搜索已返回匹配的树）
-      if (searchKeyword.value) {
-        tableData.value = originalTreeData.value
-      } else {
-        tableData.value = originalTreeData.value
-      }
-      const counts = countCategories(originalTreeData.value)
+      tableData.value = res.data
+      const counts = countCategories(tableData.value)
       Object.assign(stats, counts)
     } else {
       ElMessage.error(res.message || '获取数据失败')
@@ -278,16 +233,6 @@ const fetchCategories = async () => {
     ElMessage.error('获取数据失败')
   } finally {
     loading.value = false
-  }
-}
-
-// 前端过滤搜索（保留，但后端搜索已实现，可简化）
-const handleSearch = () => {
-  if (!searchKeyword.value) {
-    tableData.value = originalTreeData.value
-  } else {
-    // 如果希望前端过滤，可以调用 filterTreeData
-    tableData.value = filterTreeData(originalTreeData.value, searchKeyword.value)
   }
 }
 
@@ -306,7 +251,7 @@ const findNodeInTree = (nodes, id) => {
 // 获取父级分类名称
 const getParentName = (parentId, level) => {
   if (!parentId) return ''
-  const parent = findNodeInTree(originalTreeData.value, parentId)
+  const parent = findNodeInTree(tableData.value, parentId)
   return parent ? parent.name : ''
 }
 

@@ -68,8 +68,68 @@
       </div>
     </el-card>
 
-    <!-- 编辑对话框（内容与之前相同，略） -->
-    <!-- ... -->
+    <!-- 编辑对话框 -->
+      <el-dialog
+        v-model="editDialogVisible"
+        title="编辑信息"
+        width="600px"
+        destroy-on-close
+        @close="closeEditDialog"
+      >
+        <el-form
+          ref="editFormRef"
+          :model="editForm"
+          :rules="editFormRules"
+          label-width="120px"
+        >
+          <el-form-item label="信息名称" prop="deviceName">
+            <el-input v-model="editForm.deviceName" />
+          </el-form-item>
+          <el-form-item label="所属国家" prop="deviceCountry">
+            <el-input v-model="editForm.deviceCountry" />
+          </el-form-item>
+          <el-form-item label="一级分类">
+            <el-input v-model="editForm.deviceClass" />
+          </el-form-item>
+          <el-form-item label="二级分类">
+            <el-input v-model="editForm.deviceStyle" />
+          </el-form-item>
+          <el-form-item label="三级分类">
+            <el-input v-model="editForm.deviceType" />
+          </el-form-item>
+          <el-form-item label="投产年份">
+            <el-input-number v-model="editForm.deviceUseYear" :min="1900" :max="2099" />
+          </el-form-item>
+          <el-form-item label="投入成本">
+            <el-input v-model="editForm.devicePrice" />
+          </el-form-item>
+          <el-form-item label="实施单位">
+            <el-input v-model="editForm.deviceUsingUnit" />
+          </el-form-item>
+          <el-form-item label="地理位置">
+            <el-input v-model="editForm.deviceLocation" />
+          </el-form-item>
+          <el-form-item label="经度">
+            <el-input v-model="editForm.deviceLongitude" />
+          </el-form-item>
+          <el-form-item label="纬度">
+            <el-input v-model="editForm.deviceLatitude" />
+          </el-form-item>
+          <el-form-item label="图片URL">
+            <el-input v-model="editForm.deviceImg" placeholder="多个图片用逗号分隔" />
+          </el-form-item>
+          <el-form-item label="视频URL">
+            <el-input v-model="editForm.deviceVideo" placeholder="多个视频用逗号分隔" />
+          </el-form-item>
+          <el-form-item label="详情介绍">
+            <el-input type="textarea" v-model="editForm.deviceIntroduce" rows="4" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveData" :loading="saving">保存</el-button>
+        </template>
+      </el-dialog>
   </div>
 </template>
 
@@ -232,8 +292,22 @@ const saveData = async () => {
 // 关闭编辑对话框
 const closeEditDialog = () => {
   editFormRef.value?.resetFields()
-  Object.keys(editForm).forEach(key => {
-    if (typeof editForm[key] !== 'function') editForm[key] = null
+  Object.assign(editForm, {
+    id: null,
+    deviceName: '',
+    deviceClass: '',
+    deviceStyle: '',
+    deviceType: '',
+    deviceUseYear: null,
+    devicePrice: '',
+    deviceUsingUnit: '',
+    deviceCountry: '',
+    deviceLocation: '',
+    deviceLongitude: '',
+    deviceLatitude: '',
+    deviceImg: '',
+    deviceVideo: '',
+    deviceIntroduce: ''
   })
 }
 
